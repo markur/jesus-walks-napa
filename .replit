@@ -39,3 +39,6 @@ task = "packager.installForAll"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[objectStorage]
+defaultBucketID = "replit-objstore-3494e7b6-12cb-45b2-87ad-9dabb2b1782e"
