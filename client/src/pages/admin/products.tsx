@@ -28,15 +28,38 @@ export default function AdminProducts() {
   });
 
   const createProduct = useMutation({
-    mutationFn: async (data: FormData) => {
+    mutationFn: async (formData: FormData) => {
+      // Extract form data and ensure proper type conversion
+      const name = formData.get("name")?.toString();
+      const description = formData.get("description")?.toString();
+      const priceStr = formData.get("price")?.toString();
+      const category = formData.get("category")?.toString();
+      const stockStr = formData.get("stock")?.toString();
+
+      if (!name || !description || !priceStr || !category || !stockStr || !imageUrl) {
+        throw new Error("All fields are required");
+      }
+
+      const price = parseFloat(priceStr);
+      const stock = parseInt(stockStr);
+
+      if (isNaN(price) || price <= 0) {
+        throw new Error("Please enter a valid price");
+      }
+
+      if (isNaN(stock) || stock < 0) {
+        throw new Error("Please enter a valid stock quantity");
+      }
+
       const product = {
-        name: data.get("name")?.toString(),
-        description: data.get("description")?.toString(),
-        price: parseFloat(data.get("price")?.toString() || "0"),
-        imageUrl: data.get("imageUrl")?.toString(),
-        category: data.get("category")?.toString(),
-        stock: parseInt(data.get("stock")?.toString() || "0"),
+        name,
+        description,
+        price: price.toString(), // Convert to string for decimal compatibility
+        imageUrl,
+        category,
+        stock,
       };
+
       await apiRequest("POST", "/api/products", product);
     },
     onSuccess: () => {
@@ -60,7 +83,6 @@ export default function AdminProducts() {
 
   const handleImagePreview = (url: string) => {
     setImageUrl(url);
-    // Create a new image object to check if the URL is valid
     const img = new Image();
     img.onload = () => setIsPreviewValid(true);
     img.onerror = () => setIsPreviewValid(false);
@@ -78,7 +100,6 @@ export default function AdminProducts() {
       return;
     }
     const formData = new FormData(e.currentTarget);
-    formData.set("imageUrl", imageUrl);
     createProduct.mutate(formData);
   };
 
