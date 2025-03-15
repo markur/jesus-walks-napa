@@ -13,10 +13,10 @@ export function Hero() {
           filter: 'brightness(0.5)'
         }}
       />
-      
+
       <div className="relative z-10 container mx-auto px-4 py-24 sm:py-32">
         <div className="max-w-2xl">
-          <h1 className="text-4xl font-bold tracking-tight text-white sm:text-6xl">
+          <h1 className="text-4xl font-bold tracking-tight text-white sm:text-6xl font-serif">
             Find Your Path in Faith & Nature
           </h1>
           <p className="mt-6 text-lg leading-8 text-gray-300">

@@ -27,7 +27,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       <header className="border-b">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/">
-            <span className="text-xl font-bold">Jesus Walkers</span>
+            <span className="text-xl font-bold font-serif">Jesus Walkers</span>
           </Link>
 
           {isMobile ? (
