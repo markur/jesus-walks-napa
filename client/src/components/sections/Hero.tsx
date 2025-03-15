@@ -3,15 +3,15 @@ import { Link } from "wouter";
 
 export function Hero() {
   return (
-    <div className="relative">
+    <div className="relative h-[600px]">
       <div 
-        className="absolute inset-0 z-0"
+        className="absolute inset-0 bg-cover bg-center"
         style={{
-          backgroundImage: 'url(/assets/napa-valley-vineyard.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundImage: 'url("/assets/napa-valley-vineyard.jpg")',
           filter: 'brightness(0.5)'
         }}
+        role="img"
+        aria-label="Scenic vineyard landscape in Napa Valley"
       />
 
       <div className="relative z-10 container mx-auto px-4 py-24 sm:py-32">
