@@ -36,14 +36,20 @@ function CheckoutForm() {
       const { error } = await stripe.confirmPayment({
         elements,
         confirmParams: {
+          // Add clear return URLs for success/failure
           return_url: `${window.location.origin}/order-confirmation`,
+          payment_method_data: {
+            billing_details: {
+              // Add any billing details if needed
+            },
+          },
         },
       });
 
       if (error) {
         toast({
           title: "Payment Failed",
-          description: error.message,
+          description: error.message || "Please check your card details and try again.",
           variant: "destructive",
         });
       } else {
@@ -56,7 +62,7 @@ function CheckoutForm() {
     } catch (err: any) {
       toast({
         title: "Error",
-        description: err.message,
+        description: err.message || "An unexpected error occurred.",
         variant: "destructive",
       });
     } finally {
@@ -93,7 +99,11 @@ export default function Checkout() {
     if (items.length > 0) {
       apiRequest("POST", "/api/create-payment-intent", { amount: total })
         .then((res) => res.json())
-        .then((data) => setClientSecret(data.clientSecret));
+        .then((data) => setClientSecret(data.clientSecret))
+        .catch((error) => {
+          console.error("Failed to create payment intent:", error);
+          // Handle error appropriately, e.g., display an error message to the user.
+        });
     }
   }, [total, items]);
 
@@ -126,7 +136,12 @@ export default function Checkout() {
             </CardHeader>
             <CardContent>
               {clientSecret ? (
-                <Elements stripe={stripePromise} options={{ clientSecret }}>
+                <Elements stripe={stripePromise} options={{ 
+                  clientSecret,
+                  appearance: {
+                    theme: 'stripe',
+                  },
+                }}>
                   <CheckoutForm />
                 </Elements>
               ) : (
