@@ -7,7 +7,7 @@ export function Hero() {
       <div 
         className="absolute inset-0 z-0"
         style={{
-          backgroundImage: 'url(https://images.unsplash.com/photo-1464823063530-08f10ed1a2dd)',
+          backgroundImage: 'url(/assets/napa-valley-vineyard.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           filter: 'brightness(0.5)'
