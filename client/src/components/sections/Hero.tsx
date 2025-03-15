@@ -22,7 +22,7 @@ export function Hero() {
           <p className="mt-6 text-lg leading-8 text-gray-300">
             Join a community of believers who share your passion for outdoor adventure
             and spiritual growth. Experience God's creation through guided hikes and
-            meaningful connections.
+            meaningful connections with Jesus Walkers.
           </p>
           <div className="mt-10 flex gap-x-6">
             <Link href="/register">

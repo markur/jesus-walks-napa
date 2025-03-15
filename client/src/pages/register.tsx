@@ -31,7 +31,7 @@ export default function Register() {
     onSuccess: () => {
       toast({
         title: "Registration successful!",
-        description: "Welcome to Faith Hikers!",
+        description: "Welcome to Jesus Walkers!",
       });
       setLocation("/");
     },
