@@ -22,7 +22,7 @@ app.use(
       },
       createTableIfMissing: true,
     }),
-    secret: "your-secret-key", // In production, use an environment variable
+    secret: process.env.SESSION_SECRET || "your-secret-key",
     resave: false,
     saveUninitialized: false,
     cookie: {
