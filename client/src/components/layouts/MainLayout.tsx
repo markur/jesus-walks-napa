@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, Facebook, Instagram, Twitter } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useQuery } from "@tanstack/react-query";
+import type { User } from "@shared/schema";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -10,15 +12,36 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const isMobile = useIsMobile();
+  const { data: user } = useQuery<User | null>({
+    queryKey: ["/api/auth/me"],
+  });
 
   const NavLinks = () => (
     <>
       <Link href="/events">
         <Button variant="ghost">Events</Button>
       </Link>
-      <Link href="/register">
-        <Button>Join Now</Button>
-      </Link>
+      {user ? (
+        <>
+          {user.isAdmin && (
+            <Link href="/admin">
+              <Button variant="ghost">Admin Panel</Button>
+            </Link>
+          )}
+          <Link href="/logout">
+            <Button variant="ghost">Logout</Button>
+          </Link>
+        </>
+      ) : (
+        <>
+          <Link href="/login">
+            <Button variant="ghost">Login</Button>
+          </Link>
+          <Link href="/register">
+            <Button>Join Now</Button>
+          </Link>
+        </>
+      )}
     </>
   );
 
