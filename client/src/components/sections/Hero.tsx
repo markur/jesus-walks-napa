@@ -24,14 +24,14 @@ export function Hero() {
             and spiritual growth. Experience God's creation through guided hikes and
             meaningful connections with Jesus Walkers.
           </p>
-          <div className="mt-10 flex gap-x-6">
+          <div className="mt-10 flex flex-col sm:flex-row gap-4 sm:gap-x-6">
             <Link href="/register">
-              <Button size="lg" className="text-lg">
+              <Button size="lg" className="text-lg w-full sm:w-auto">
                 Join Our Community
               </Button>
             </Link>
             <Link href="/events">
-              <Button variant="outline" size="lg" className="text-lg text-white border-white hover:bg-white/10">
+              <Button variant="outline" size="lg" className="text-lg w-full sm:w-auto text-white border-white hover:bg-white/10">
                 View Events
               </Button>
             </Link>
