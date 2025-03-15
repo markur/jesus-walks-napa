@@ -7,7 +7,7 @@ export function Hero() {
       <div 
         className="absolute inset-0 bg-cover bg-center"
         style={{
-          backgroundImage: `url(${window.location.origin}/assets/napa-valley-vineyard.jpg)`,
+          backgroundImage: `url('https://images.unsplash.com/photo-1464823063530-08f10ed1a2dd')`,
           filter: 'brightness(0.5)'
         }}
         role="img"
