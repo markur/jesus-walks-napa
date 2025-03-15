@@ -21,6 +21,9 @@ export function MainLayout({ children }: MainLayoutProps) {
       <Link href="/events">
         <Button variant="ghost">Events</Button>
       </Link>
+      <Link href="/shop">
+        <Button variant="ghost">Shop</Button>
+      </Link>
       {user ? (
         <>
           {user.isAdmin && (

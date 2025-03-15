@@ -1,5 +1,10 @@
 import { users, events, registrations, waitlist, products, orders, orderItems } from "@shared/schema";
 import type { User, Event, Registration, Waitlist, Product, Order, OrderItem, InsertUser, InsertEvent, InsertRegistration, InsertWaitlist, InsertProduct, InsertOrder, InsertOrderItem } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "./db";
 
 export interface IStorage {
   // User operations
@@ -43,237 +48,155 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   getAllOrders(): Promise<Order[]>;
   updateUserRole(userId: number, isAdmin: boolean): Promise<User>;
+
+  // Session store
+  sessionStore: session.Store;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private events: Map<number, Event>;
-  private registrations: Map<number, Registration>;
-  private waitlist: Map<number, Waitlist>;
-  private products: Map<number, Product>;
-  private orders: Map<number, Order>;
-  private orderItems: Map<number, OrderItem>;
-  private currentIds: {
-    users: number;
-    events: number;
-    registrations: number;
-    waitlist: number;
-    products: number;
-    orders: number;
-    orderItems: number;
-  };
+export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
 
   constructor() {
-    this.users = new Map();
-    this.events = new Map();
-    this.registrations = new Map();
-    this.waitlist = new Map();
-    this.products = new Map();
-    this.orders = new Map();
-    this.orderItems = new Map();
-    this.currentIds = {
-      users: 1,
-      events: 1,
-      registrations: 1,
-      waitlist: 1,
-      products: 1,
-      orders: 1,
-      orderItems: 1,
-    };
+    const PostgresStore = connectPgSimple(session);
+    this.sessionStore = new PostgresStore({
+      pool,
+      createTableIfMissing: true,
+    });
   }
 
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email === email,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentIds.users++;
-    const user: User = { 
-      ...insertUser, 
-      id, 
-      isAdmin: false,
-      isVerified: false 
-    };
-    this.users.set(id, user);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const [newUser] = await db.insert(users).values(user).returning();
+    return newUser;
+  }
+
   async getEvent(id: number): Promise<Event | undefined> {
-    return this.events.get(id);
+    const [event] = await db.select().from(events).where(eq(events.id, id));
+    return event;
   }
 
   async getAllEvents(): Promise<Event[]> {
-    return Array.from(this.events.values());
+    return await db.select().from(events);
   }
 
   async createEvent(event: InsertEvent): Promise<Event> {
-    const id = this.currentIds.events++;
-    const newEvent: Event = { ...event, id };
-    this.events.set(id, newEvent);
+    const [newEvent] = await db.insert(events).values(event).returning();
     return newEvent;
   }
 
   async getRegistration(id: number): Promise<Registration | undefined> {
-    return this.registrations.get(id);
+    const [registration] = await db.select().from(registrations).where(eq(registrations.id, id));
+    return registration;
   }
 
   async createRegistration(registration: InsertRegistration): Promise<Registration> {
-    const id = this.currentIds.registrations++;
-    const newRegistration: Registration = { 
-      ...registration, 
-      id,
-      createdAt: new Date()
-    };
-    this.registrations.set(id, newRegistration);
+    const [newRegistration] = await db.insert(registrations).values(registration).returning();
     return newRegistration;
   }
 
   async getEventRegistrations(eventId: number): Promise<Registration[]> {
-    return Array.from(this.registrations.values()).filter(
-      (reg) => reg.eventId === eventId,
-    );
+    return await db.select().from(registrations).where(eq(registrations.eventId, eventId));
   }
 
   async addToWaitlist(email: InsertWaitlist): Promise<Waitlist> {
-    const id = this.currentIds.waitlist++;
-    const entry: Waitlist = { 
-      ...email, 
-      id,
-      createdAt: new Date()
-    };
-    this.waitlist.set(id, entry);
+    const [entry] = await db.insert(waitlist).values(email).returning();
     return entry;
   }
 
   async isEmailInWaitlist(email: string): Promise<boolean> {
-    return Array.from(this.waitlist.values()).some(
-      (entry) => entry.email === email,
-    );
+    const [entry] = await db.select().from(waitlist).where(eq(waitlist.email, email));
+    return !!entry;
   }
 
   async getProduct(id: number): Promise<Product | undefined> {
-    return this.products.get(id);
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product;
   }
 
   async getAllProducts(): Promise<Product[]> {
-    return Array.from(this.products.values());
+    return await db.select().from(products);
   }
 
   async getProductsByCategory(category: string): Promise<Product[]> {
-    return Array.from(this.products.values()).filter(
-      (product) => product.category === category
-    );
+    return await db.select().from(products).where(eq(products.category, category));
   }
 
   async createProduct(product: InsertProduct): Promise<Product> {
-    const id = this.currentIds.products++;
-    const newProduct: Product = { 
-      ...product, 
-      id,
-      createdAt: new Date()
-    };
-    this.products.set(id, newProduct);
+    const [newProduct] = await db.insert(products).values(product).returning();
     return newProduct;
   }
 
   async updateProductStock(id: number, quantity: number): Promise<Product> {
-    const product = await this.getProduct(id);
-    if (!product) {
-      throw new Error('Product not found');
-    }
-    const updatedProduct: Product = {
-      ...product,
-      stock: quantity
-    };
-    this.products.set(id, updatedProduct);
+    const [updatedProduct] = await db
+      .update(products)
+      .set({ stock: quantity })
+      .where(eq(products.id, id))
+      .returning();
     return updatedProduct;
   }
 
   async getOrder(id: number): Promise<Order | undefined> {
-    return this.orders.get(id);
+    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    return order;
   }
 
   async getUserOrders(userId: number): Promise<Order[]> {
-    return Array.from(this.orders.values()).filter(
-      (order) => order.userId === userId
-    );
+    return await db.select().from(orders).where(eq(orders.userId, userId));
   }
 
   async createOrder(order: InsertOrder): Promise<Order> {
-    const id = this.currentIds.orders++;
-    const now = new Date();
-    const newOrder: Order = {
-      ...order,
-      id,
-      createdAt: now,
-      updatedAt: now
-    };
-    this.orders.set(id, newOrder);
+    const [newOrder] = await db.insert(orders).values(order).returning();
     return newOrder;
   }
 
   async updateOrderStatus(id: number, status: string): Promise<Order> {
-    const order = await this.getOrder(id);
-    if (!order) {
-      throw new Error('Order not found');
-    }
-    const updatedOrder: Order = {
-      ...order,
-      status,
-      updatedAt: new Date()
-    };
-    this.orders.set(id, updatedOrder);
+    const [updatedOrder] = await db
+      .update(orders)
+      .set({ status })
+      .where(eq(orders.id, id))
+      .returning();
     return updatedOrder;
   }
 
   async getOrderItems(orderId: number): Promise<OrderItem[]> {
-    return Array.from(this.orderItems.values()).filter(
-      (item) => item.orderId === orderId
-    );
+    return await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
   }
 
   async createOrderItem(orderItem: InsertOrderItem): Promise<OrderItem> {
-    const id = this.currentIds.orderItems++;
-    const newOrderItem: OrderItem = {
-      ...orderItem,
-      id
-    };
-    this.orderItems.set(id, newOrderItem);
+    const [newOrderItem] = await db.insert(orderItems).values(orderItem).returning();
     return newOrderItem;
   }
 
   async getAllUsers(): Promise<User[]> {
-    return Array.from(this.users.values());
+    return await db.select().from(users);
   }
 
   async getAllOrders(): Promise<Order[]> {
-    return Array.from(this.orders.values());
+    return await db.select().from(orders);
   }
 
   async updateUserRole(userId: number, isAdmin: boolean): Promise<User> {
-    const user = await this.getUser(userId);
-    if (!user) {
-      throw new Error('User not found');
-    }
-    const updatedUser: User = {
-      ...user,
-      isAdmin
-    };
-    this.users.set(userId, updatedUser);
+    const [updatedUser] = await db
+      .update(users)
+      .set({ isAdmin })
+      .where(eq(users.id, userId))
+      .returning();
     return updatedUser;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

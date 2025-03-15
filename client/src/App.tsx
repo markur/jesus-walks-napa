@@ -8,6 +8,7 @@ import Events from "@/pages/events";
 import Register from "@/pages/register";
 import Login from "@/pages/login";
 import AdminDashboard from "@/pages/admin";
+import Shop from "@/pages/shop";
 
 function Router() {
   return (
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/login" component={Login} />
       <Route path="/admin" component={AdminDashboard} />
+      <Route path="/shop" component={Shop} />
       <Route component={NotFound} />
     </Switch>
   );
