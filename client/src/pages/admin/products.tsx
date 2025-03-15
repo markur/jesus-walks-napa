@@ -30,12 +30,12 @@ export default function AdminProducts() {
   const createProduct = useMutation({
     mutationFn: async (data: FormData) => {
       const product = {
-        name: data.get("name"),
-        description: data.get("description"),
-        price: parseFloat(data.get("price") as string),
-        imageUrl: data.get("imageUrl"),
-        category: data.get("category"),
-        stock: parseInt(data.get("stock") as string),
+        name: data.get("name")?.toString(),
+        description: data.get("description")?.toString(),
+        price: parseFloat(data.get("price")?.toString() || "0"),
+        imageUrl: data.get("imageUrl")?.toString(),
+        category: data.get("category")?.toString(),
+        stock: parseInt(data.get("stock")?.toString() || "0"),
       };
       await apiRequest("POST", "/api/products", product);
     },
@@ -105,7 +105,7 @@ export default function AdminProducts() {
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Product</DialogTitle>
             </DialogHeader>
@@ -179,7 +179,7 @@ export default function AdminProducts() {
               </div>
               <Button 
                 type="submit" 
-                className="w-full"
+                className="w-full mb-4"
                 disabled={createProduct.isPending || !isPreviewValid}
               >
                 {createProduct.isPending ? "Creating..." : "Create Product"}
