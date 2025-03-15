@@ -9,7 +9,7 @@ import type { User } from "@shared/schema";
 // Social media configuration
 const SOCIAL_LINKS = {
   facebook: "https://www.facebook.com/jesuswalks.community",
-  instagram: "https://www.instagram.com/jesuswalks.community",
+  instagram: "https://www.instagram.com/jesuswalksnapa",
   twitter: "https://twitter.com/jesuswalks_com",
 };
 
@@ -89,9 +89,9 @@ export function MainLayout({ children }: MainLayoutProps) {
       <footer className="border-t py-8 mt-16">
         <div className="container mx-auto px-4 text-center">
           <div className="flex justify-center gap-6 mb-4">
-            <a 
+            <a
               href={SOCIAL_LINKS.facebook}
-              target="_blank" 
+              target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-primary transition-colors"
               title="Follow us on Facebook"
@@ -99,9 +99,9 @@ export function MainLayout({ children }: MainLayoutProps) {
               <Facebook className="h-6 w-6" />
               <span className="sr-only">Facebook</span>
             </a>
-            <a 
+            <a
               href={SOCIAL_LINKS.instagram}
-              target="_blank" 
+              target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-primary transition-colors"
               title="Follow us on Instagram"
@@ -109,9 +109,9 @@ export function MainLayout({ children }: MainLayoutProps) {
               <Instagram className="h-6 w-6" />
               <span className="sr-only">Instagram</span>
             </a>
-            <a 
+            <a
               href={SOCIAL_LINKS.twitter}
-              target="_blank" 
+              target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-primary transition-colors"
               title="Follow us on Twitter"
