@@ -20,7 +20,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 export default function AdminProducts() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  
+  const [imageUrl, setImageUrl] = useState("");
+  const [isPreviewValid, setIsPreviewValid] = useState(false);
+
   const { data: products, isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
@@ -43,6 +45,8 @@ export default function AdminProducts() {
         description: "Product created successfully",
       });
       setIsDialogOpen(false);
+      setImageUrl("");
+      setIsPreviewValid(false);
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
     },
     onError: (error: Error) => {
@@ -54,9 +58,27 @@ export default function AdminProducts() {
     },
   });
 
+  const handleImagePreview = (url: string) => {
+    setImageUrl(url);
+    // Create a new image object to check if the URL is valid
+    const img = new Image();
+    img.onload = () => setIsPreviewValid(true);
+    img.onerror = () => setIsPreviewValid(false);
+    img.src = url;
+  };
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!isPreviewValid) {
+      toast({
+        title: "Error",
+        description: "Please provide a valid image URL",
+        variant: "destructive",
+      });
+      return;
+    }
     const formData = new FormData(e.currentTarget);
+    formData.set("imageUrl", imageUrl);
     createProduct.mutate(formData);
   };
 
@@ -83,7 +105,7 @@ export default function AdminProducts() {
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Add New Product</DialogTitle>
             </DialogHeader>
@@ -109,7 +131,37 @@ export default function AdminProducts() {
               </div>
               <div>
                 <Label htmlFor="imageUrl">Image URL</Label>
-                <Input id="imageUrl" name="imageUrl" required />
+                <div className="flex gap-2">
+                  <Input 
+                    id="imageUrl"
+                    value={imageUrl}
+                    onChange={(e) => handleImagePreview(e.target.value)}
+                    placeholder="Enter image URL or paste from clipboard"
+                    required 
+                  />
+                </div>
+                {imageUrl && (
+                  <div className="mt-2">
+                    {isPreviewValid ? (
+                      <div className="relative w-full h-48 rounded-lg overflow-hidden">
+                        <img 
+                          src={imageUrl} 
+                          alt="Product preview" 
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-2 right-2">
+                          <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs">
+                            Valid Image
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-red-50 text-red-500 p-2 rounded">
+                        Invalid image URL. Please check the URL and try again.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <Label htmlFor="category">Category</Label>
@@ -128,7 +180,7 @@ export default function AdminProducts() {
               <Button 
                 type="submit" 
                 className="w-full"
-                disabled={createProduct.isPending}
+                disabled={createProduct.isPending || !isPreviewValid}
               >
                 {createProduct.isPending ? "Creating..." : "Create Product"}
               </Button>
