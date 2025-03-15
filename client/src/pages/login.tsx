@@ -6,10 +6,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import type { User } from "@shared/schema";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -22,6 +23,17 @@ export default function Login() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
+  // Check if user is already logged in
+  const { data: user } = useQuery<User | null>({
+    queryKey: ["/api/auth/me"],
+  });
+
+  // Redirect if already logged in
+  if (user) {
+    setLocation(user.isAdmin ? "/admin" : "/");
+    return null;
+  }
+
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -32,14 +44,18 @@ export default function Login() {
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (data: LoginForm) => {
-      await apiRequest("POST", "/api/auth/login", data);
+      const res = await apiRequest("POST", "/api/auth/login", data);
+      return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Login successful!",
         description: "Welcome back!",
       });
-      setLocation("/admin");
+      // Update auth status
+      queryClient.setQueryData(["/api/auth/me"], data.user);
+      // Redirect based on user role
+      setLocation(data.user.isAdmin ? "/admin" : "/");
     },
     onError: (error: Error) => {
       toast({
