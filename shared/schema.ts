@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -53,6 +53,11 @@ export const orders = pgTable("orders", {
   userId: integer("user_id").references(() => users.id).notNull(),
   status: text("status").notNull(), // 'pending', 'paid', 'shipped', 'delivered', 'cancelled'
   total: decimal("total").notNull(),
+  shippingMethodId: integer("shipping_method_id").references(() => shippingMethods.id),
+  shippingAddress: jsonb("shipping_address").notNull(),
+  shippingCost: decimal("shipping_cost"),
+  trackingNumber: text("tracking_number"),
+  estimatedDeliveryDate: timestamp("estimated_delivery_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -63,6 +68,34 @@ export const orderItems = pgTable("order_items", {
   productId: integer("product_id").references(() => products.id).notNull(),
   quantity: integer("quantity").notNull(),
   price: decimal("price").notNull(), // Price at time of purchase
+});
+
+// Add new shipping-related tables
+export const shippingMethods = pgTable("shipping_methods", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  carrier: text("carrier").notNull(), // 'USPS', 'UPS', 'FedEx'
+  serviceCode: text("service_code").notNull(),
+  estimatedDays: integer("estimated_days").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+export const shippingZones = pgTable("shipping_zones", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  countries: text("countries").array().notNull(),
+  regions: text("regions").array(),
+  postalCodes: text("postal_codes").array(),
+});
+
+export const shippingRates = pgTable("shipping_rates", {
+  id: serial("id").primaryKey(),
+  methodId: integer("method_id").references(() => shippingMethods.id).notNull(),
+  zoneId: integer("zone_id").references(() => shippingZones.id).notNull(),
+  baseRate: decimal("base_rate").notNull(),
+  perWeightRate: decimal("per_weight_rate"),
+  minimumWeight: decimal("minimum_weight"),
+  maximumWeight: decimal("maximum_weight"),
 });
 
 // Schema definitions
@@ -82,6 +115,11 @@ export const insertProductSchema = createInsertSchema(products);
 export const insertOrderSchema = createInsertSchema(orders);
 export const insertOrderItemSchema = createInsertSchema(orderItems);
 
+// Add shipping-related schemas
+export const insertShippingMethodSchema = createInsertSchema(shippingMethods);
+export const insertShippingZoneSchema = createInsertSchema(shippingZones);
+export const insertShippingRateSchema = createInsertSchema(shippingRates);
+
 // Type definitions
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
@@ -91,6 +129,15 @@ export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 
+// Add shipping-related types
+export type ShippingMethod = typeof shippingMethods.$inferSelect;
+export type ShippingZone = typeof shippingZones.$inferSelect;
+export type ShippingRate = typeof shippingRates.$inferSelect;
+export type InsertShippingMethod = z.infer<typeof insertShippingMethodSchema>;
+export type InsertShippingZone = z.infer<typeof insertShippingZoneSchema>;
+export type InsertShippingRate = z.infer<typeof insertShippingRateSchema>;
+
+
 export type User = typeof users.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type Registration = typeof registrations.$inferSelect;
@@ -98,3 +145,18 @@ export type Waitlist = typeof waitlist.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
+
+// Add shipping address schema
+export const shippingAddressSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  address1: z.string().min(1, "Address is required"),
+  address2: z.string().optional(),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  postalCode: z.string().min(5, "Valid postal code is required"),
+  country: z.string().min(1, "Country is required"),
+  phone: z.string().min(10, "Valid phone number is required"),
+});
+
+export type ShippingAddress = z.infer<typeof shippingAddressSchema>;
