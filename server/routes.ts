@@ -4,7 +4,40 @@ import { storage } from "./storage";
 import { insertUserSchema, insertEventSchema, insertRegistrationSchema, insertWaitlistSchema } from "@shared/schema";
 import { z } from "zod";
 
+// Middleware to check if user is authenticated and is an admin
+const requireAdmin = async (req: any, res: any, next: any) => {
+  if (!req.session?.userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const user = await storage.getUser(req.session.userId);
+  if (!user?.isAdmin) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  next();
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Admin routes
+  app.get("/api/users", requireAdmin, async (_req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.get("/api/orders", requireAdmin, async (_req, res) => {
+    try {
+      const orders = await storage.getAllOrders();
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
   // User routes
   app.post("/api/users", async (req, res) => {
     try {
@@ -14,12 +47,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (existingUser) {
         return res.status(400).json({ message: "Username already taken" });
       }
-
+      
       const existingEmail = await storage.getUserByEmail(userData.email);
       if (existingEmail) {
         return res.status(400).json({ message: "Email already registered" });
       }
-
+      
       const user = await storage.createUser(userData);
       res.status(201).json(user);
     } catch (error) {
@@ -62,12 +95,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
-
+      
       const registrations = await storage.getEventRegistrations(registrationData.eventId);
       if (registrations.length >= event.capacity) {
         return res.status(400).json({ message: "Event is at full capacity" });
       }
-
+      
       const registration = await storage.createRegistration(registrationData);
       res.status(201).json(registration);
     } catch (error) {
@@ -87,7 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isEmailRegistered) {
         return res.status(400).json({ message: "Email already in waitlist" });
       }
-
+      
       const entry = await storage.addToWaitlist(waitlistData);
       res.status(201).json(entry);
     } catch (error) {

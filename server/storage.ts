@@ -38,6 +38,11 @@ export interface IStorage {
   // Order Item operations
   getOrderItems(orderId: number): Promise<OrderItem[]>;
   createOrderItem(orderItem: InsertOrderItem): Promise<OrderItem>;
+
+  // Admin operations
+  getAllUsers(): Promise<User[]>;
+  getAllOrders(): Promise<Order[]>;
+  updateUserRole(userId: number, isAdmin: boolean): Promise<User>;
 }
 
 export class MemStorage implements IStorage {
@@ -158,7 +163,6 @@ export class MemStorage implements IStorage {
     );
   }
 
-  // New e-commerce methods
   async getProduct(id: number): Promise<Product | undefined> {
     return this.products.get(id);
   }
@@ -248,6 +252,27 @@ export class MemStorage implements IStorage {
     };
     this.orderItems.set(id, newOrderItem);
     return newOrderItem;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
+  async getAllOrders(): Promise<Order[]> {
+    return Array.from(this.orders.values());
+  }
+
+  async updateUserRole(userId: number, isAdmin: boolean): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    const updatedUser: User = {
+      ...user,
+      isAdmin
+    };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
   }
 }
 
