@@ -24,6 +24,7 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 const billingSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   phone: z.string().min(10, "Please enter a valid phone number"),
+  postalCode: z.string().min(5, "Please enter a valid postal code"),
 });
 
 type BillingForm = z.infer<typeof billingSchema>;
@@ -41,6 +42,7 @@ function CheckoutForm() {
     defaultValues: {
       email: "",
       phone: "",
+      postalCode: "",
     },
   });
 
@@ -60,6 +62,9 @@ function CheckoutForm() {
             billing_details: {
               email: data.email,
               phone: data.phone,
+              address: {
+                postal_code: data.postalCode,
+              }
             },
           },
         },
@@ -118,13 +123,28 @@ function CheckoutForm() {
             </FormItem>
           )}
         />
+        <FormField
+          control={form.control}
+          name="postalCode"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Postal Code</FormLabel>
+              <FormControl>
+                <Input type="text" {...field} placeholder="12345" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <PaymentElement options={{
           fields: {
-            billingDetails: 'never' // Hide the built-in billing details section
+            billingDetails: 'never' // Hide all built-in billing details
           },
           layout: {
             type: 'tabs',
-            defaultCollapsed: false
+            defaultCollapsed: false,
+            radios: 'never',
+            spacedAccordionItems: false
           }
         }} />
         <Button 
