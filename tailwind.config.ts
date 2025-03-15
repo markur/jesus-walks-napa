@@ -6,7 +6,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        serif: ["Merriweather", "Georgia", "serif"],
+        serif: ["Playfair Display", "Georgia", "serif"],
       },
       borderRadius: {
         lg: "var(--radius)",
