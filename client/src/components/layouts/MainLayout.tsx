@@ -6,6 +6,13 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
 
+// Social media configuration
+const SOCIAL_LINKS = {
+  facebook: "https://www.facebook.com/jesuswalks.community",
+  instagram: "https://www.instagram.com/jesuswalks.community",
+  twitter: "https://twitter.com/jesuswalks_com",
+};
+
 interface MainLayoutProps {
   children: React.ReactNode;
 }
@@ -83,28 +90,31 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div className="container mx-auto px-4 text-center">
           <div className="flex justify-center gap-6 mb-4">
             <a 
-              href="https://facebook.com/jesuswalks" 
+              href={SOCIAL_LINKS.facebook}
               target="_blank" 
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-primary transition-colors"
+              title="Follow us on Facebook"
             >
               <Facebook className="h-6 w-6" />
               <span className="sr-only">Facebook</span>
             </a>
             <a 
-              href="https://instagram.com/jesuswalks" 
+              href={SOCIAL_LINKS.instagram}
               target="_blank" 
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-primary transition-colors"
+              title="Follow us on Instagram"
             >
               <Instagram className="h-6 w-6" />
               <span className="sr-only">Instagram</span>
             </a>
             <a 
-              href="https://twitter.com/jesuswalks" 
+              href={SOCIAL_LINKS.twitter}
               target="_blank" 
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-primary transition-colors"
+              title="Follow us on Twitter"
             >
               <Twitter className="h-6 w-6" />
               <span className="sr-only">Twitter</span>
