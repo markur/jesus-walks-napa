@@ -10,7 +10,7 @@ import { MainLayout } from "@/components/layouts/MainLayout";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Loader2 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,6 +34,7 @@ function CheckoutForm() {
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
   const { state: { total }, clearCart } = useCart();
+  const [, setLocation] = useLocation();
 
   const form = useForm<BillingForm>({
     resolver: zodResolver(billingSchema),
@@ -62,9 +63,12 @@ function CheckoutForm() {
             },
           },
         },
+        redirect: 'if_required', // Only redirect if 3D Secure is needed
       });
 
       if (error) {
+        // This point will only be reached if there's an immediate error.
+        // Otherwise, the customer will be redirected to the `return_url`.
         toast({
           title: "Payment Failed",
           description: error.message || "Please check your details and try again.",
@@ -72,10 +76,7 @@ function CheckoutForm() {
         });
       } else {
         clearCart();
-        toast({
-          title: "Payment Successful",
-          description: "Thank you for your purchase!",
-        });
+        setLocation('/order-confirmation');
       }
     } catch (err: any) {
       toast({
@@ -117,7 +118,15 @@ function CheckoutForm() {
             </FormItem>
           )}
         />
-        <PaymentElement />
+        <PaymentElement options={{
+          fields: {
+            billingDetails: 'never' // Hide the built-in billing details section
+          },
+          layout: {
+            type: 'tabs',
+            defaultCollapsed: false
+          }
+        }} />
         <Button 
           type="submit" 
           className="w-full" 
@@ -157,16 +166,18 @@ export default function Checkout() {
     return (
       <MainLayout>
         <div className="container mx-auto px-4 py-8">
-          <Card>
-            <CardContent className="p-8 text-center">
-              <p>Your cart is empty</p>
-              <Link href="/shop">
-                <Button className="mt-4">
-                  Continue Shopping
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <div className="max-w-2xl mx-auto">
+            <Card>
+              <CardContent className="p-8 text-center">
+                <p className="text-muted-foreground mb-6">Your cart is empty</p>
+                <Link href="/shop">
+                  <Button>
+                    Continue Shopping
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </MainLayout>
     );
