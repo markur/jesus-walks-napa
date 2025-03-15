@@ -60,7 +60,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       <header className="border-b">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/">
-            <span className="text-2xl md:text-3xl font-bold font-serif tracking-wide">Jesus Walks</span>
+            <span className="text-2xl md:text-3xl font-bold font-serif tracking-wide">Jesus Walks Napa</span>
           </Link>
 
           {isMobile ? (
