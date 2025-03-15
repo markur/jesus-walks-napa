@@ -1,9 +1,10 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Facebook, Instagram, Twitter } from "lucide-react";
+import { Menu, Facebook, Instagram, Twitter, ShoppingCart } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuery } from "@tanstack/react-query";
+import { useCart } from "@/hooks/use-cart";
 import type { User } from "@shared/schema";
 
 // Social media configuration
@@ -22,6 +23,8 @@ export function MainLayout({ children }: MainLayoutProps) {
   const { data: user } = useQuery<User | null>({
     queryKey: ["/api/auth/me"],
   });
+  const { state: { items } } = useCart();
+  const cartItemsCount = items.reduce((total, item) => total + item.quantity, 0);
 
   const NavLinks = () => (
     <>
@@ -30,6 +33,16 @@ export function MainLayout({ children }: MainLayoutProps) {
       </Link>
       <Link href="/shop">
         <Button variant="ghost">Shop</Button>
+      </Link>
+      <Link href="/cart">
+        <Button variant="ghost" className="relative">
+          <ShoppingCart className="h-5 w-5" />
+          {cartItemsCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full w-5 h-5 text-xs flex items-center justify-center">
+              {cartItemsCount}
+            </span>
+          )}
+        </Button>
       </Link>
       {user ? (
         <>
