@@ -1,5 +1,5 @@
-import { users, events, registrations, waitlist } from "@shared/schema";
-import type { User, Event, Registration, Waitlist, InsertUser, InsertEvent, InsertRegistration, InsertWaitlist } from "@shared/schema";
+import { users, events, registrations, waitlist, products, orders, orderItems } from "@shared/schema";
+import type { User, Event, Registration, Waitlist, Product, Order, OrderItem, InsertUser, InsertEvent, InsertRegistration, InsertWaitlist, InsertProduct, InsertOrder, InsertOrderItem } from "@shared/schema";
 
 export interface IStorage {
   // User operations
@@ -7,20 +7,37 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+
   // Event operations
   getEvent(id: number): Promise<Event | undefined>;
   getAllEvents(): Promise<Event[]>;
   createEvent(event: InsertEvent): Promise<Event>;
-  
+
   // Registration operations
   getRegistration(id: number): Promise<Registration | undefined>;
   createRegistration(registration: InsertRegistration): Promise<Registration>;
   getEventRegistrations(eventId: number): Promise<Registration[]>;
-  
+
   // Waitlist operations
   addToWaitlist(email: InsertWaitlist): Promise<Waitlist>;
   isEmailInWaitlist(email: string): Promise<boolean>;
+
+  // Product operations
+  getProduct(id: number): Promise<Product | undefined>;
+  getAllProducts(): Promise<Product[]>;
+  getProductsByCategory(category: string): Promise<Product[]>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProductStock(id: number, quantity: number): Promise<Product>;
+
+  // Order operations
+  getOrder(id: number): Promise<Order | undefined>;
+  getUserOrders(userId: number): Promise<Order[]>;
+  createOrder(order: InsertOrder): Promise<Order>;
+  updateOrderStatus(id: number, status: string): Promise<Order>;
+
+  // Order Item operations
+  getOrderItems(orderId: number): Promise<OrderItem[]>;
+  createOrderItem(orderItem: InsertOrderItem): Promise<OrderItem>;
 }
 
 export class MemStorage implements IStorage {
@@ -28,11 +45,17 @@ export class MemStorage implements IStorage {
   private events: Map<number, Event>;
   private registrations: Map<number, Registration>;
   private waitlist: Map<number, Waitlist>;
+  private products: Map<number, Product>;
+  private orders: Map<number, Order>;
+  private orderItems: Map<number, OrderItem>;
   private currentIds: {
     users: number;
     events: number;
     registrations: number;
     waitlist: number;
+    products: number;
+    orders: number;
+    orderItems: number;
   };
 
   constructor() {
@@ -40,11 +63,17 @@ export class MemStorage implements IStorage {
     this.events = new Map();
     this.registrations = new Map();
     this.waitlist = new Map();
+    this.products = new Map();
+    this.orders = new Map();
+    this.orderItems = new Map();
     this.currentIds = {
       users: 1,
       events: 1,
       registrations: 1,
       waitlist: 1,
+      products: 1,
+      orders: 1,
+      orderItems: 1,
     };
   }
 
@@ -127,6 +156,98 @@ export class MemStorage implements IStorage {
     return Array.from(this.waitlist.values()).some(
       (entry) => entry.email === email,
     );
+  }
+
+  // New e-commerce methods
+  async getProduct(id: number): Promise<Product | undefined> {
+    return this.products.get(id);
+  }
+
+  async getAllProducts(): Promise<Product[]> {
+    return Array.from(this.products.values());
+  }
+
+  async getProductsByCategory(category: string): Promise<Product[]> {
+    return Array.from(this.products.values()).filter(
+      (product) => product.category === category
+    );
+  }
+
+  async createProduct(product: InsertProduct): Promise<Product> {
+    const id = this.currentIds.products++;
+    const newProduct: Product = { 
+      ...product, 
+      id,
+      createdAt: new Date()
+    };
+    this.products.set(id, newProduct);
+    return newProduct;
+  }
+
+  async updateProductStock(id: number, quantity: number): Promise<Product> {
+    const product = await this.getProduct(id);
+    if (!product) {
+      throw new Error('Product not found');
+    }
+    const updatedProduct: Product = {
+      ...product,
+      stock: quantity
+    };
+    this.products.set(id, updatedProduct);
+    return updatedProduct;
+  }
+
+  async getOrder(id: number): Promise<Order | undefined> {
+    return this.orders.get(id);
+  }
+
+  async getUserOrders(userId: number): Promise<Order[]> {
+    return Array.from(this.orders.values()).filter(
+      (order) => order.userId === userId
+    );
+  }
+
+  async createOrder(order: InsertOrder): Promise<Order> {
+    const id = this.currentIds.orders++;
+    const now = new Date();
+    const newOrder: Order = {
+      ...order,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.orders.set(id, newOrder);
+    return newOrder;
+  }
+
+  async updateOrderStatus(id: number, status: string): Promise<Order> {
+    const order = await this.getOrder(id);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+    const updatedOrder: Order = {
+      ...order,
+      status,
+      updatedAt: new Date()
+    };
+    this.orders.set(id, updatedOrder);
+    return updatedOrder;
+  }
+
+  async getOrderItems(orderId: number): Promise<OrderItem[]> {
+    return Array.from(this.orderItems.values()).filter(
+      (item) => item.orderId === orderId
+    );
+  }
+
+  async createOrderItem(orderItem: InsertOrderItem): Promise<OrderItem> {
+    const id = this.currentIds.orderItems++;
+    const newOrderItem: OrderItem = {
+      ...orderItem,
+      id
+    };
+    this.orderItems.set(id, newOrderItem);
+    return newOrderItem;
   }
 }
 

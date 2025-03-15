@@ -27,7 +27,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       <header className="border-b">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/">
-            <span className="text-2xl md:text-3xl font-bold font-serif tracking-wide">Jesus Walkers</span>
+            <span className="text-2xl md:text-3xl font-bold font-serif tracking-wide">Jesus Walks</span>
           </Link>
 
           {isMobile ? (
@@ -57,7 +57,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div className="container mx-auto px-4 text-center">
           <div className="flex justify-center gap-6 mb-4">
             <a 
-              href="https://facebook.com/jesuswalkers" 
+              href="https://facebook.com/jesuswalks" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-primary transition-colors"
@@ -66,7 +66,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               <span className="sr-only">Facebook</span>
             </a>
             <a 
-              href="https://instagram.com/jesuswalkers" 
+              href="https://instagram.com/jesuswalks" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-primary transition-colors"
@@ -75,7 +75,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               <span className="sr-only">Instagram</span>
             </a>
             <a 
-              href="https://twitter.com/jesuswalkers" 
+              href="https://twitter.com/jesuswalks" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-primary transition-colors"
@@ -84,7 +84,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               <span className="sr-only">Twitter</span>
             </a>
           </div>
-          <p className="text-sm text-muted-foreground">© 2024 Jesus Walkers. All rights reserved.</p>
+          <p className="text-sm text-muted-foreground">© 2024 Jesus Walks. All rights reserved.</p>
         </div>
       </footer>
     </div>
