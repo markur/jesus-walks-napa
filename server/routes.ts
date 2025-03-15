@@ -10,7 +10,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2025-02-24.acacia",
 });
 
 // Middleware to check if user is authenticated and is an admin
@@ -204,15 +204,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { amount } = req.body;
 
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Invalid amount" });
+      }
+
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100), // Convert to cents
         currency: "usd",
+        // Add automatic payment methods
+        automatic_payment_methods: {
+          enabled: true,
+        },
       });
 
       res.json({ clientSecret: paymentIntent.client_secret });
     } catch (error: any) {
+      console.error("Stripe error:", error);
       res.status(500).json({ 
-        message: "Error creating payment intent: " + error.message 
+        message: "Error creating payment intent",
+        details: error.message 
       });
     }
   });
