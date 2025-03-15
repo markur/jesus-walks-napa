@@ -8,6 +8,7 @@ import Events from "@/pages/events";
 import Register from "@/pages/register";
 import Login from "@/pages/login";
 import AdminDashboard from "@/pages/admin";
+import AdminProducts from "@/pages/admin/products";
 import Shop from "@/pages/shop";
 
 function Router() {
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/login" component={Login} />
       <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin/products" component={AdminProducts} />
       <Route path="/shop" component={Shop} />
       <Route component={NotFound} />
     </Switch>
