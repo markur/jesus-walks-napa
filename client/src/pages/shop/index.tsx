@@ -2,12 +2,14 @@ import { MainLayout } from "@/components/layouts/MainLayout";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useCart } from "@/hooks/use-cart";
 import type { Product } from "@shared/schema";
 
 export default function Shop() {
   const { data: products, isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
+  const { addItem } = useCart();
 
   if (isLoading) {
     return (
@@ -49,8 +51,12 @@ export default function Shop() {
                 <p className="text-lg font-bold mt-2">${Number(product.price).toFixed(2)}</p>
               </CardContent>
               <CardFooter>
-                <Button className="w-full" onClick={() => alert("Shopping cart coming soon!")}>
-                  Add to Cart
+                <Button 
+                  className="w-full" 
+                  onClick={() => addItem(product)}
+                  disabled={product.stock <= 0}
+                >
+                  {product.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
                 </Button>
               </CardFooter>
             </Card>
