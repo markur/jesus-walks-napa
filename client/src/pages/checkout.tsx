@@ -7,14 +7,26 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MainLayout } from "@/components/layouts/MainLayout";
+import { Input } from "@/components/ui/input";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Loader2 } from "lucide-react";
 import { Link } from "wouter";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
   throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
 }
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+
+const billingSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  phone: z.string().min(10, "Please enter a valid phone number"),
+});
+
+type BillingForm = z.infer<typeof billingSchema>;
 
 function CheckoutForm() {
   const stripe = useStripe();
@@ -23,9 +35,15 @@ function CheckoutForm() {
   const { toast } = useToast();
   const { state: { total }, clearCart } = useCart();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const form = useForm<BillingForm>({
+    resolver: zodResolver(billingSchema),
+    defaultValues: {
+      email: "",
+      phone: "",
+    },
+  });
 
+  const handleSubmit = async (data: BillingForm) => {
     if (!stripe || !elements) {
       return;
     }
@@ -36,11 +54,11 @@ function CheckoutForm() {
       const { error } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          // Ensure HTTPS for the return URL
           return_url: `${window.location.protocol}//${window.location.host}/order-confirmation`,
           payment_method_data: {
             billing_details: {
-              // Add any billing details if needed
+              email: data.email,
+              phone: data.phone,
             },
           },
         },
@@ -49,7 +67,7 @@ function CheckoutForm() {
       if (error) {
         toast({
           title: "Payment Failed",
-          description: error.message || "Please check your card details and try again.",
+          description: error.message || "Please check your details and try again.",
           variant: "destructive",
         });
       } else {
@@ -71,23 +89,51 @@ function CheckoutForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <PaymentElement />
-      <Button 
-        type="submit" 
-        className="w-full" 
-        disabled={isProcessing || !stripe}
-      >
-        {isProcessing ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Processing...
-          </>
-        ) : (
-          `Pay $${total.toFixed(2)}`
-        )}
-      </Button>
-    </form>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input type="email" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="phone"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Phone Number</FormLabel>
+              <FormControl>
+                <Input type="tel" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <PaymentElement />
+        <Button 
+          type="submit" 
+          className="w-full" 
+          disabled={isProcessing || !stripe}
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            `Pay $${total.toFixed(2)}`
+          )}
+        </Button>
+      </form>
+    </Form>
   );
 }
 
