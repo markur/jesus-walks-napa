@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu } from "lucide-react";
+import { Menu, Facebook, Instagram, Twitter } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface MainLayoutProps {
@@ -54,8 +54,37 @@ export function MainLayout({ children }: MainLayoutProps) {
       <main className="flex-1">{children}</main>
 
       <footer className="border-t py-8 mt-16">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>© 2024 Faith Hikers. All rights reserved.</p>
+        <div className="container mx-auto px-4 text-center">
+          <div className="flex justify-center gap-6 mb-4">
+            <a 
+              href="https://facebook.com/faithhikers" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-primary transition-colors"
+            >
+              <Facebook className="h-6 w-6" />
+              <span className="sr-only">Facebook</span>
+            </a>
+            <a 
+              href="https://instagram.com/faithhikers" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-primary transition-colors"
+            >
+              <Instagram className="h-6 w-6" />
+              <span className="sr-only">Instagram</span>
+            </a>
+            <a 
+              href="https://twitter.com/faithhikers" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-primary transition-colors"
+            >
+              <Twitter className="h-6 w-6" />
+              <span className="sr-only">Twitter</span>
+            </a>
+          </div>
+          <p className="text-sm text-muted-foreground">© 2024 Faith Hikers. All rights reserved.</p>
         </div>
       </footer>
     </div>
