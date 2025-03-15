@@ -1,6 +1,6 @@
 import { useStripe, Elements, PaymentElement, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { useState } from 'react';
+import { useState, useEffect as ReactuseEffect } from 'react';
 import { useCart } from "@/hooks/use-cart";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -33,14 +33,10 @@ function CheckoutForm() {
     setIsProcessing(true);
 
     try {
-      const response = await apiRequest("POST", "/api/create-payment-intent", { amount: total }); // Don't multiply by 100 here, backend handles it
-      const data = await response.json();
-      const { error } = await stripe.confirmCardPayment(data.clientSecret, {
-        payment_method: {
-          card: elements.getElement(PaymentElement),
-          billing_details: {
-            // Add billing details here if needed
-          },
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/order-confirmation`,
         },
       });
 
@@ -90,7 +86,16 @@ function CheckoutForm() {
 }
 
 export default function Checkout() {
+  const [clientSecret, setClientSecret] = useState<string>("");
   const { state: { total, items } } = useCart();
+
+  ReactuseEffect(() => {
+    if (items.length > 0) {
+      apiRequest("POST", "/api/create-payment-intent", { amount: total })
+        .then((res) => res.json())
+        .then((data) => setClientSecret(data.clientSecret));
+    }
+  }, [total, items]);
 
   if (items.length === 0) {
     return (
@@ -120,9 +125,15 @@ export default function Checkout() {
               <CardTitle>Complete Your Purchase</CardTitle>
             </CardHeader>
             <CardContent>
-              <Elements stripe={stripePromise}>
-                <CheckoutForm />
-              </Elements>
+              {clientSecret ? (
+                <Elements stripe={stripePromise} options={{ clientSecret }}>
+                  <CheckoutForm />
+                </Elements>
+              ) : (
+                <div className="flex justify-center p-4">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
