@@ -3,6 +3,15 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertEventSchema, insertRegistrationSchema, insertWaitlistSchema, insertProductSchema } from "@shared/schema";
 import { z } from "zod";
+import Stripe from "stripe";
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error("Missing required Stripe secret: STRIPE_SECRET_KEY");
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2023-10-16",
+});
 
 // Middleware to check if user is authenticated and is an admin
 const requireAdmin = async (req: any, res: any, next: any) => {
@@ -187,6 +196,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(products);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  // Add Stripe payment route
+  app.post("/api/create-payment-intent", async (req, res) => {
+    try {
+      const { amount } = req.body;
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100), // Convert to cents
+        currency: "usd",
+      });
+
+      res.json({ clientSecret: paymentIntent.client_secret });
+    } catch (error: any) {
+      res.status(500).json({ 
+        message: "Error creating payment intent: " + error.message 
+      });
     }
   });
 

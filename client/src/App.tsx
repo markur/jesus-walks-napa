@@ -12,6 +12,7 @@ import AdminDashboard from "@/pages/admin";
 import AdminProducts from "@/pages/admin/products";
 import Shop from "@/pages/shop";
 import Cart from "@/pages/cart";
+import Checkout from "@/pages/checkout";
 
 function Router() {
   return (
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/admin/products" component={AdminProducts} />
       <Route path="/shop" component={Shop} />
       <Route path="/cart" component={Cart} />
+      <Route path="/checkout" component={Checkout} />
       <Route component={NotFound} />
     </Switch>
   );
