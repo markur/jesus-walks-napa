@@ -1,6 +1,6 @@
 import { useStripe, Elements, PaymentElement, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { useState, useEffect as ReactuseEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useCart } from "@/hooks/use-cart";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -142,9 +142,7 @@ function CheckoutForm() {
           },
           layout: {
             type: 'tabs',
-            defaultCollapsed: false,
-            radios: 'never',
-            spacedAccordionItems: false
+            defaultCollapsed: false
           }
         }} />
         <Button 
@@ -170,7 +168,7 @@ export default function Checkout() {
   const [clientSecret, setClientSecret] = useState<string>("");
   const { state: { total, items } } = useCart();
 
-  ReactuseEffect(() => {
+  useEffect(() => {
     if (items.length > 0) {
       apiRequest("POST", "/api/create-payment-intent", { amount: total })
         .then((res) => res.json())
