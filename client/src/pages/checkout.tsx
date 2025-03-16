@@ -1,6 +1,6 @@
 import { useStripe, Elements, PaymentElement, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCart } from "@/hooks/use-cart";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
