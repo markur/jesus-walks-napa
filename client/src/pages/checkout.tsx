@@ -25,6 +25,8 @@ const billingSchema = z.object({
   name: z.string().min(1, "Full name is required"),
   email: z.string().email("Please enter a valid email address"),
   phone: z.string().min(10, "Please enter a valid phone number"),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(2, "State is required"),
   postalCode: z.string().min(5, "Please enter a valid postal code"),
   country: z.string().min(2, "Country is required"),
 });
@@ -45,6 +47,8 @@ function CheckoutForm() {
       name: "",
       email: "",
       phone: "",
+      city: "",
+      state: "",
       postalCode: "",
       country: "US",
     },
@@ -68,6 +72,8 @@ function CheckoutForm() {
               email: data.email,
               phone: data.phone,
               address: {
+                city: data.city,
+                state: data.state,
                 postal_code: data.postalCode,
                 country: data.country,
               }
@@ -141,17 +147,45 @@ function CheckoutForm() {
         />
         <FormField
           control={form.control}
-          name="postalCode"
+          name="city"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Postal Code</FormLabel>
+              <FormLabel>City</FormLabel>
               <FormControl>
-                <Input type="text" {...field} placeholder="12345" />
+                <Input {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="state"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>State</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="CA" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="postalCode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Postal Code</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="12345" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
         <FormField
           control={form.control}
           name="country"
@@ -159,7 +193,7 @@ function CheckoutForm() {
             <FormItem>
               <FormLabel>Country</FormLabel>
               <FormControl>
-                <Input type="text" {...field} />
+                <Input {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -171,7 +205,12 @@ function CheckoutForm() {
             googlePay: 'never'
           },
           fields: {
-            billingDetails: 'never'
+            billingDetails: {
+              name: 'never',
+              email: 'never',
+              phone: 'never',
+              address: 'never'
+            }
           }
         }} />
         <Button 
