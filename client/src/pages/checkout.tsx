@@ -74,7 +74,6 @@ function CheckoutForm() {
             },
           },
         },
-        redirect: 'if_required',
       });
 
       if (error) {
@@ -168,13 +167,12 @@ function CheckoutForm() {
         />
         <PaymentElement options={{
           wallets: {
-            applePay: false,
-            googlePay: false
+            applePay: 'never',
+            googlePay: 'never'
           },
           fields: {
             billingDetails: 'never'
-          },
-          paymentMethodOrder: ['card']
+          }
         }} />
         <Button 
           type="submit" 
