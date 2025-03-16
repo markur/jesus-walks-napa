@@ -1,18 +1,26 @@
+
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is required");
+// Check required environment variables
+const requiredEnvVars = [
+  { name: 'DATABASE_URL', message: 'Please add a DATABASE_URL secret in your deployment configuration.' },
+  { name: 'SESSION_SECRET', message: 'Please add a SESSION_SECRET secret in your deployment configuration.' }
+];
+
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar.name]) {
+    throw new Error(`${envVar.name} is required. ${envVar.message}`);
+  }
 }
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Setup session middleware with PostgreSQL store
 const PgSession = connectPgSimple(session);
 app.use(
   session({
