@@ -3,7 +3,8 @@ import NodeGeocoder from "node-geocoder";
 import type { ShippingAddress } from "@shared/schema";
 
 if (!process.env.EASYPOST_API_KEY) {
-  throw new Error("Missing required EasyPost API key");
+  console.warn("Warning: Missing EASYPOST_API_KEY. Shipping features will be disabled.");
+  process.env.EASYPOST_API_KEY = '';
 }
 
 const easypost = new Easypost(process.env.EASYPOST_API_KEY);

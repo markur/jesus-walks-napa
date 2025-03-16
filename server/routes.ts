@@ -7,7 +7,8 @@ import Stripe from "stripe";
 import { shippingService } from "./services/shipping";
 
 if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("Missing required Stripe secret: STRIPE_SECRET_KEY");
+  console.warn("Warning: Missing STRIPE_SECRET_KEY. Payment features will be disabled.");
+  process.env.STRIPE_SECRET_KEY = '';
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {

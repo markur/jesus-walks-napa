@@ -13,7 +13,8 @@ const requiredEnvVars = [
 
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar.name]) {
-    throw new Error(`${envVar.name} is required. ${envVar.message}`);
+    console.error(`${envVar.name} is required. ${envVar.message}`);
+    process.exit(1);
   }
 }
 
