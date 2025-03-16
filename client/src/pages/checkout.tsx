@@ -14,7 +14,6 @@ import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import ReCAPTCHA from "react-google-recaptcha";
 
 if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
   throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
@@ -39,10 +38,18 @@ function CheckoutForm() {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   const { toast } = useToast();
   const { state: { total }, clearCart } = useCart();
   const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    const loadRecaptcha = async () => {
+      const script = document.createElement('script');
+      script.src = `https://www.google.com/recaptcha/api.js?render=${import.meta.env.VITE_RECAPTCHA_SITE_KEY}`;
+      document.body.appendChild(script);
+    };
+    loadRecaptcha();
+  }, []);
 
   const form = useForm<BillingForm>({
     resolver: zodResolver(billingSchema),
@@ -55,20 +62,28 @@ function CheckoutForm() {
   });
 
   const handleSubmit = async (data: BillingForm) => {
-    if (!stripe || !elements || !recaptchaToken) {
-      if (!recaptchaToken) {
-        toast({
-          title: "Verification Required",
-          description: "Please complete the reCAPTCHA verification",
-          variant: "destructive",
-        });
-      }
+    if (!stripe || !elements) {
       return;
     }
 
     setIsProcessing(true);
 
     try {
+      // Execute reCAPTCHA v3
+      const recaptchaToken = await (window as any).grecaptcha.execute(
+        import.meta.env.VITE_RECAPTCHA_SITE_KEY,
+        { action: 'submit' }
+      );
+
+      if (!recaptchaToken) {
+        toast({
+          title: "Verification Failed",
+          description: "Please try again",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { error } = await stripe.confirmPayment({
         elements,
         confirmParams: {
@@ -80,6 +95,7 @@ function CheckoutForm() {
               phone: data.phone,
               address: {
                 postal_code: data.postalCode,
+                country: 'US',
               }
             },
           },
@@ -164,38 +180,26 @@ function CheckoutForm() {
         />
 
         <PaymentElement options={{
+          layout: {
+            type: 'tabs',
+            defaultCollapsed: false,
+          },
+          business: {
+            name: 'Faith Hikers Store'
+          },
           fields: {
-            billingDetails: {
-              address: {
-                country: 'never',
-                state: 'never',
-                city: 'never',
-                line1: 'never',
-                line2: 'never',
-                postalCode: 'never',
-              },
-              email: 'never',
-              name: 'never',
-              phone: 'never',
-            }
+            billingDetails: 'never'
           },
           wallets: {
             applePay: 'never',
             googlePay: 'never'
-          }
+          },
         }} />
-
-        <div className="flex justify-center my-4">
-          <ReCAPTCHA
-            sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-            onChange={(token) => setRecaptchaToken(token)}
-          />
-        </div>
 
         <Button 
           type="submit" 
           className="w-full" 
-          disabled={isProcessing || !stripe || !recaptchaToken}
+          disabled={isProcessing || !stripe}
         >
           {isProcessing ? (
             <>
