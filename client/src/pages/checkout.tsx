@@ -60,7 +60,6 @@ function CheckoutForm() {
       // Calculate shipping rates
       const response = await apiRequest("POST", "/api/shipping/calculate-rates", {
         fromAddress: {
-          // Your warehouse/store address
           firstName: "Store",
           lastName: "Admin",
           address1: "1234 Store St",
@@ -72,7 +71,6 @@ function CheckoutForm() {
         },
         toAddress: address,
         parcelDetails: {
-          // Example package dimensions - adjust based on your products
           weight: 1.0,
           length: 12.0,
           width: 8.0,
