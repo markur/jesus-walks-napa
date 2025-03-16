@@ -22,6 +22,7 @@ if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 const billingSchema = z.object({
+  name: z.string().min(1, "Full name is required"),
   email: z.string().email("Please enter a valid email address"),
   phone: z.string().min(10, "Please enter a valid phone number"),
   postalCode: z.string().min(5, "Please enter a valid postal code"),
@@ -40,6 +41,7 @@ function CheckoutForm() {
   const form = useForm<BillingForm>({
     resolver: zodResolver(billingSchema),
     defaultValues: {
+      name: "",
       email: "",
       phone: "",
       postalCode: "",
@@ -60,6 +62,7 @@ function CheckoutForm() {
           return_url: `${window.location.protocol}//${window.location.host}/order-confirmation`,
           payment_method_data: {
             billing_details: {
+              name: data.name,
               email: data.email,
               phone: data.phone,
               address: {
@@ -97,6 +100,19 @@ function CheckoutForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Full Name</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <FormField
           control={form.control}
           name="email"
