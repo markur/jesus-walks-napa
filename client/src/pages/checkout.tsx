@@ -5,7 +5,7 @@ import { useCart } from "@/hooks/use-cart";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { MainLayout } from "@/components/layouts/MainLayout";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -23,19 +23,6 @@ if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-const billingSchema = z.object({
-  name: z.string()
-    .min(2, "Name must be at least 2 characters")
-    .max(50, "Name cannot exceed 50 characters")
-    .regex(/^[a-zA-Z\s]*$/, "Name can only contain letters and spaces"),
-  email: z.string()
-    .email("Please enter a valid email address")
-    .min(5, "Email must be at least 5 characters")
-    .max(50, "Email cannot exceed 50 characters"),
-});
-
-type BillingForm = z.infer<typeof billingSchema>;
-
 function CheckoutForm() {
   const stripe = useStripe();
   const elements = useElements();
@@ -48,6 +35,19 @@ function CheckoutForm() {
   const { state: { total, items }, clearCart } = useCart();
   const [, setLocation] = useLocation();
 
+  const billingSchema = z.object({
+    name: z.string()
+      .min(2, "Name must be at least 2 characters")
+      .max(50, "Name cannot exceed 50 characters")
+      .regex(/^[a-zA-Z\s]*$/, "Name can only contain letters and spaces"),
+    email: z.string()
+      .email("Please enter a valid email address")
+      .min(5, "Email must be at least 5 characters")
+      .max(50, "Email cannot exceed 50 characters"),
+  });
+
+  type BillingForm = z.infer<typeof billingSchema>;
+
   const form = useForm<BillingForm>({
     resolver: zodResolver(billingSchema),
     mode: "onChange",
@@ -57,7 +57,6 @@ function CheckoutForm() {
     setShippingAddress(address);
 
     try {
-      // Calculate shipping rates
       const response = await apiRequest("POST", "/api/shipping/calculate-rates", {
         fromAddress: {
           firstName: "Store",
@@ -82,12 +81,49 @@ function CheckoutForm() {
       setShippingRates(rates);
 
       if (rates.length > 0) {
-        setSelectedRate(rates[0]); // Select the first rate by default
+        // Select first rate and create payment intent
+        const firstRate = rates[0];
+        setSelectedRate(firstRate);
+
+        // Create payment intent with total + shipping
+        const response = await apiRequest("POST", "/api/create-payment-intent", {
+          amount: total + firstRate.rate
+        });
+        const { clientSecret } = await response.json();
+
+        // Update the URL with client secret
+        const searchParams = new URLSearchParams(window.location.search);
+        searchParams.set("payment_intent_client_secret", clientSecret);
+        const newUrl = `${window.location.pathname}?${searchParams.toString()}`;
+        window.history.pushState({}, "", newUrl);
       }
     } catch (error: any) {
       toast({
         title: "Error Calculating Shipping",
         description: error.message || "Failed to calculate shipping rates",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRateSelection = async (rate: ShippingRate) => {
+    setSelectedRate(rate);
+    try {
+      // Create new payment intent with updated total
+      const response = await apiRequest("POST", "/api/create-payment-intent", {
+        amount: total + rate.rate
+      });
+      const { clientSecret } = await response.json();
+
+      // Update the URL with new client secret
+      const searchParams = new URLSearchParams(window.location.search);
+      searchParams.set("payment_intent_client_secret", clientSecret);
+      const newUrl = `${window.location.pathname}?${searchParams.toString()}`;
+      window.history.pushState({}, "", newUrl);
+    } catch (error: any) {
+      toast({
+        title: "Error Updating Payment",
+        description: error.message || "Failed to update payment details",
         variant: "destructive",
       });
     }
@@ -175,7 +211,7 @@ function CheckoutForm() {
                         className={`p-4 border rounded-lg cursor-pointer flex items-center justify-between ${
                           selectedRate?.service === rate.service ? 'border-primary bg-primary/5' : ''
                         }`}
-                        onClick={() => setSelectedRate(rate)}
+                        onClick={() => handleRateSelection(rate)}
                       >
                         <div className="flex items-center space-x-4">
                           <TruckIcon className="h-5 w-5" />
@@ -295,16 +331,14 @@ export default function Checkout() {
   const [clientSecret, setClientSecret] = useState<string>("");
   const { state: { total, items } } = useCart();
 
+  // Get client secret from URL
   useEffect(() => {
-    if (items.length > 0) {
-      apiRequest("POST", "/api/create-payment-intent", { amount: total })
-        .then((res) => res.json())
-        .then((data) => setClientSecret(data.clientSecret))
-        .catch((error) => {
-          console.error("Failed to create payment intent:", error);
-        });
+    const searchParams = new URLSearchParams(window.location.search);
+    const secret = searchParams.get("payment_intent_client_secret");
+    if (secret) {
+      setClientSecret(secret);
     }
-  }, [total, items]);
+  }, []);
 
   if (items.length === 0) {
     return (
@@ -330,9 +364,6 @@ export default function Checkout() {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
           <Card>
-            <CardHeader>
-              <CardTitle>Complete Your Purchase</CardTitle>
-            </CardHeader>
             <CardContent>
               {clientSecret ? (
                 <Elements stripe={stripePromise} options={{ 
@@ -344,9 +375,14 @@ export default function Checkout() {
                   <CheckoutForm />
                 </Elements>
               ) : (
-                <div className="flex justify-center p-4">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
+                <ShippingAddressForm
+                  onAddressValidated={(address) => {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    document.body.appendChild(form);
+                    form.submit();
+                  }}
+                />
               )}
             </CardContent>
           </Card>
