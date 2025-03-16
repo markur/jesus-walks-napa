@@ -14,9 +14,14 @@ import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import ReCAPTCHA from "react-google-recaptcha";
 
 if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
   throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
+}
+
+if (!import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
+  throw new Error('Missing required ReCAPTCHA key: VITE_RECAPTCHA_SITE_KEY');
 }
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
@@ -25,10 +30,7 @@ const billingSchema = z.object({
   name: z.string().min(1, "Full name is required"),
   email: z.string().email("Please enter a valid email address"),
   phone: z.string().min(10, "Please enter a valid phone number"),
-  city: z.string().min(1, "City is required"),
-  state: z.string().min(2, "State is required"),
   postalCode: z.string().min(5, "Please enter a valid postal code"),
-  country: z.string().min(2, "Country is required"),
 });
 
 type BillingForm = z.infer<typeof billingSchema>;
@@ -37,6 +39,7 @@ function CheckoutForm() {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   const { toast } = useToast();
   const { state: { total }, clearCart } = useCart();
   const [, setLocation] = useLocation();
@@ -47,15 +50,19 @@ function CheckoutForm() {
       name: "",
       email: "",
       phone: "",
-      city: "",
-      state: "",
       postalCode: "",
-      country: "US",
     },
   });
 
   const handleSubmit = async (data: BillingForm) => {
-    if (!stripe || !elements) {
+    if (!stripe || !elements || !recaptchaToken) {
+      if (!recaptchaToken) {
+        toast({
+          title: "Verification Required",
+          description: "Please complete the reCAPTCHA verification",
+          variant: "destructive",
+        });
+      }
       return;
     }
 
@@ -72,10 +79,7 @@ function CheckoutForm() {
               email: data.email,
               phone: data.phone,
               address: {
-                city: data.city,
-                state: data.state,
                 postal_code: data.postalCode,
-                country: data.country,
               }
             },
           },
@@ -147,76 +151,51 @@ function CheckoutForm() {
         />
         <FormField
           control={form.control}
-          name="city"
+          name="postalCode"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>City</FormLabel>
+              <FormLabel>Postal Code</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input {...field} placeholder="12345" />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="state"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>State</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="CA" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="postalCode"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Postal Code</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="12345" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        <FormField
-          control={form.control}
-          name="country"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Country</FormLabel>
-              <FormControl>
-                <Input {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+
         <PaymentElement options={{
+          fields: {
+            billingDetails: {
+              address: {
+                country: 'never',
+                state: 'never',
+                city: 'never',
+                line1: 'never',
+                line2: 'never',
+                postalCode: 'never',
+              },
+              email: 'never',
+              name: 'never',
+              phone: 'never',
+            }
+          },
           wallets: {
             applePay: 'never',
             googlePay: 'never'
-          },
-          fields: {
-            billingDetails: {
-              name: 'never',
-              email: 'never',
-              phone: 'never',
-              address: 'never'
-            }
           }
         }} />
+
+        <div className="flex justify-center my-4">
+          <ReCAPTCHA
+            sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+            onChange={(token) => setRecaptchaToken(token)}
+          />
+        </div>
+
         <Button 
           type="submit" 
           className="w-full" 
-          disabled={isProcessing || !stripe}
+          disabled={isProcessing || !stripe || !recaptchaToken}
         >
           {isProcessing ? (
             <>
