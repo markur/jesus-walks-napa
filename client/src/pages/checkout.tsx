@@ -26,6 +26,7 @@ const billingSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   phone: z.string().min(10, "Please enter a valid phone number"),
   postalCode: z.string().min(5, "Please enter a valid postal code"),
+  country: z.string().min(2, "Country is required"),
 });
 
 type BillingForm = z.infer<typeof billingSchema>;
@@ -45,6 +46,7 @@ function CheckoutForm() {
       email: "",
       phone: "",
       postalCode: "",
+      country: "US", // Default to US
     },
   });
 
@@ -67,6 +69,7 @@ function CheckoutForm() {
               phone: data.phone,
               address: {
                 postal_code: data.postalCode,
+                country: data.country,
               }
             },
           },
@@ -152,13 +155,26 @@ function CheckoutForm() {
             </FormItem>
           )}
         />
+        <FormField
+          control={form.control}
+          name="country"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Country</FormLabel>
+              <FormControl>
+                <Input type="text" {...field} defaultValue="US" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <PaymentElement options={{
           fields: {
-            billingDetails: 'never' // Hide all built-in billing details
+            billingDetails: 'never', // Hide all built-in billing details
           },
-          layout: {
-            type: 'tabs',
-            defaultCollapsed: false
+          wallets: {
+            applePay: 'never',
+            googlePay: 'never'
           }
         }} />
         <Button 
