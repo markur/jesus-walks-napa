@@ -46,7 +46,7 @@ function CheckoutForm() {
       email: "",
       phone: "",
       postalCode: "",
-      country: "US", // Default to US
+      country: "US",
     },
   });
 
@@ -74,12 +74,10 @@ function CheckoutForm() {
             },
           },
         },
-        redirect: 'if_required', // Only redirect if 3D Secure is needed
+        redirect: 'if_required',
       });
 
       if (error) {
-        // This point will only be reached if there's an immediate error.
-        // Otherwise, the customer will be redirected to the `return_url`.
         toast({
           title: "Payment Failed",
           description: error.message || "Please check your details and try again.",
@@ -162,20 +160,21 @@ function CheckoutForm() {
             <FormItem>
               <FormLabel>Country</FormLabel>
               <FormControl>
-                <Input type="text" {...field} defaultValue="US" />
+                <Input type="text" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
         <PaymentElement options={{
-          fields: {
-            billingDetails: 'never', // Hide all built-in billing details
-          },
           wallets: {
-            applePay: 'never',
-            googlePay: 'never'
-          }
+            applePay: false,
+            googlePay: false
+          },
+          fields: {
+            billingDetails: 'never'
+          },
+          paymentMethodOrder: ['card']
         }} />
         <Button 
           type="submit" 
@@ -207,7 +206,6 @@ export default function Checkout() {
         .then((data) => setClientSecret(data.clientSecret))
         .catch((error) => {
           console.error("Failed to create payment intent:", error);
-          // Handle error appropriately, e.g., display an error message to the user.
         });
     }
   }, [total, items]);
