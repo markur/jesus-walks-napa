@@ -1,6 +1,6 @@
 import { useStripe, Elements, PaymentElement, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useCart } from "@/hooks/use-cart";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -17,10 +17,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
   throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
-}
-
-if (!import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
-  throw new Error('Missing required ReCAPTCHA key: VITE_RECAPTCHA_SITE_KEY');
 }
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
@@ -53,27 +49,17 @@ function CheckoutForm() {
   });
 
   const handleSubmit = async (data: BillingForm) => {
-    if (!stripe || !elements || !(window as any).grecaptcha) {
+    if (!stripe || !elements) {
       return;
     }
 
     setIsProcessing(true);
 
     try {
-      // Execute reCAPTCHA v3
-      const recaptchaToken = await (window as any).grecaptcha.execute(
-        import.meta.env.VITE_RECAPTCHA_SITE_KEY,
-        { action: 'submit' }
-      );
-
-      if (!recaptchaToken) {
-        throw new Error("Could not verify you are human");
-      }
-
       const { error } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: `${window.location.protocol}//${window.location.host}/order-confirmation`,
+          return_url: `${window.location.origin}/order-confirmation`,
           payment_method_data: {
             billing_details: {
               name: data.name,
@@ -165,13 +151,6 @@ function CheckoutForm() {
           layout: {
             type: 'tabs',
             defaultCollapsed: false,
-          },
-          fields: {
-            billingDetails: 'never',
-          },
-          wallets: {
-            applePay: 'never',
-            googlePay: 'never'
           }
         }} />
 
