@@ -11,6 +11,7 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@easypost/api": "^7.5.5",
     "@hookform/resolvers": "^3.9.1",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@neondatabase/serverless": "^0.10.4",
@@ -61,6 +62,7 @@
     "input-otp": "^1.2.4",
     "lucide-react": "^0.453.0",
     "memorystore": "^1.6.7",
+    "node-geocoder": "^4.4.1",
     "openai": "^4.87.3",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",

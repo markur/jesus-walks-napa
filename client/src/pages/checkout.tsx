@@ -1,6 +1,6 @@
 import { useStripe, Elements, PaymentElement, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useCart } from "@/hooks/use-cart";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -9,11 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MainLayout } from "@/components/layouts/MainLayout";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, TruckIcon } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ShippingAddressForm } from "@/components/forms/ShippingAddressForm";
+import type { ShippingAddress, ShippingRate } from "@shared/schema";
 
 if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
   throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
@@ -30,11 +32,6 @@ const billingSchema = z.object({
     .email("Please enter a valid email address")
     .min(5, "Email must be at least 5 characters")
     .max(50, "Email cannot exceed 50 characters"),
-  phone: z.string()
-    .regex(/^\+?1?\d{9,15}$/, "Please enter a valid phone number")
-    .min(10, "Phone number must be at least 10 digits"),
-  postalCode: z.string()
-    .regex(/^\d{5}(-\d{4})?$/, "Please enter a valid US postal code (e.g., 12345 or 12345-6789)")
 });
 
 type BillingForm = z.infer<typeof billingSchema>;
@@ -44,28 +41,66 @@ function CheckoutForm() {
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null);
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
+  const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
   const { toast } = useToast();
-  const { state: { total }, clearCart } = useCart();
+  const { state: { total, items }, clearCart } = useCart();
   const [, setLocation] = useLocation();
 
   const form = useForm<BillingForm>({
     resolver: zodResolver(billingSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-      postalCode: "",
-    },
-    mode: "onChange", // Enable real-time validation
+    mode: "onChange",
   });
 
-  // Handle payment element changes
+  const handleAddressValidated = async (address: ShippingAddress) => {
+    setShippingAddress(address);
+
+    try {
+      // Calculate shipping rates
+      const response = await apiRequest("POST", "/api/shipping/calculate-rates", {
+        fromAddress: {
+          // Your warehouse/store address
+          firstName: "Store",
+          lastName: "Admin",
+          address1: "1234 Store St",
+          city: "Napa",
+          state: "CA",
+          postalCode: "94559",
+          country: "US",
+          phone: "1234567890"
+        },
+        toAddress: address,
+        parcelDetails: {
+          // Example package dimensions - adjust based on your products
+          weight: 1.0,
+          length: 12.0,
+          width: 8.0,
+          height: 6.0
+        }
+      });
+
+      const rates = await response.json();
+      setShippingRates(rates);
+
+      if (rates.length > 0) {
+        setSelectedRate(rates[0]); // Select the first rate by default
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error Calculating Shipping",
+        description: error.message || "Failed to calculate shipping rates",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handlePaymentChange = (event: any) => {
     setPaymentError(event.error ? event.error.message : null);
   };
 
   const handleSubmit = async (data: BillingForm) => {
-    if (!stripe || !elements) {
+    if (!stripe || !elements || !shippingAddress || !selectedRate) {
       return;
     }
 
@@ -81,10 +116,18 @@ function CheckoutForm() {
             billing_details: {
               name: data.name,
               email: data.email,
-              phone: data.phone,
+            },
+            shipping: {
+              name: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
               address: {
-                postal_code: data.postalCode,
-              }
+                line1: shippingAddress.address1,
+                line2: shippingAddress.address2,
+                city: shippingAddress.city,
+                state: shippingAddress.state,
+                postal_code: shippingAddress.postalCode,
+                country: 'US',
+              },
+              phone: shippingAddress.phone,
             },
           },
         },
@@ -114,128 +157,139 @@ function CheckoutForm() {
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Full Name</FormLabel>
-              <FormControl>
-                <Input 
-                  {...field} 
-                  placeholder="John Doe"
-                  className={form.formState.errors.name ? "border-red-500" : ""}
-                  onChange={(e) => {
-                    field.onChange(e);
-                    form.trigger("name"); // Trigger validation on change
-                  }}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input 
-                  type="email" 
-                  {...field} 
-                  placeholder="john@example.com"
-                  className={form.formState.errors.email ? "border-red-500" : ""}
-                  onChange={(e) => {
-                    field.onChange(e);
-                    form.trigger("email");
-                  }}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="phone"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Phone Number</FormLabel>
-              <FormControl>
-                <Input 
-                  type="tel" 
-                  {...field} 
-                  placeholder="(123) 456-7890"
-                  className={form.formState.errors.phone ? "border-red-500" : ""}
-                  onChange={(e) => {
-                    field.onChange(e);
-                    form.trigger("phone");
-                  }}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="postalCode"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Postal Code</FormLabel>
-              <FormControl>
-                <Input 
-                  {...field} 
-                  placeholder="12345"
-                  className={form.formState.errors.postalCode ? "border-red-500" : ""}
-                  onChange={(e) => {
-                    field.onChange(e);
-                    form.trigger("postalCode");
-                  }}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+    <div className="space-y-6">
+      {!shippingAddress ? (
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Shipping Information</h2>
+          <ShippingAddressForm onAddressValidated={handleAddressValidated} />
+        </div>
+      ) : (
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Shipping Method</h2>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    {shippingRates.map((rate) => (
+                      <div
+                        key={`${rate.carrier}-${rate.service}`}
+                        className={`p-4 border rounded-lg cursor-pointer flex items-center justify-between ${
+                          selectedRate?.service === rate.service ? 'border-primary bg-primary/5' : ''
+                        }`}
+                        onClick={() => setSelectedRate(rate)}
+                      >
+                        <div className="flex items-center space-x-4">
+                          <TruckIcon className="h-5 w-5" />
+                          <div>
+                            <p className="font-medium">{rate.carrier} - {rate.service}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Estimated delivery: {rate.estimatedDays} days
+                            </p>
+                          </div>
+                        </div>
+                        <p className="font-semibold">${rate.rate.toFixed(2)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-        <PaymentElement 
-          onChange={handlePaymentChange}
-          options={{
-            layout: {
-              type: 'tabs',
-              defaultCollapsed: false,
-            }
-          }} 
-        />
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Payment Information</h2>
+              <Card>
+                <CardContent className="pt-6 space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            placeholder="John Doe"
+                            className={form.formState.errors.name ? "border-red-500" : ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-        {paymentError && (
-          <div className="flex items-center gap-2 text-red-500 text-sm">
-            <AlertCircle className="h-4 w-4" />
-            <span>{paymentError}</span>
-          </div>
-        )}
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="email" 
+                            {...field} 
+                            placeholder="john@example.com"
+                            className={form.formState.errors.email ? "border-red-500" : ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-        <Button 
-          type="submit" 
-          className="w-full" 
-          disabled={isProcessing || !stripe || !form.formState.isValid}
-        >
-          {isProcessing ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            `Pay $${total.toFixed(2)}`
-          )}
-        </Button>
-      </form>
-    </Form>
+                  <PaymentElement 
+                    onChange={handlePaymentChange}
+                    options={{
+                      layout: {
+                        type: 'tabs',
+                        defaultCollapsed: false,
+                      }
+                    }} 
+                  />
+
+                  {paymentError && (
+                    <div className="flex items-center gap-2 text-red-500 text-sm">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{paymentError}</span>
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t">
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>Subtotal</span>
+                      <span>${total.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>Shipping</span>
+                      <span>${selectedRate?.rate.toFixed(2) || '0.00'}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-lg">
+                      <span>Total</span>
+                      <span>${(total + (selectedRate?.rate || 0)).toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isProcessing || !stripe || !form.formState.isValid}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      `Pay $${(total + (selectedRate?.rate || 0)).toFixed(2)}`
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </form>
+        </Form>
+      )}
+    </div>
   );
 }
 

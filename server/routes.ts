@@ -1,9 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertEventSchema, insertRegistrationSchema, insertWaitlistSchema, insertProductSchema } from "@shared/schema";
+import { insertUserSchema, insertEventSchema, insertRegistrationSchema, insertWaitlistSchema, insertProductSchema, shippingAddressSchema } from "@shared/schema";
 import { z } from "zod";
 import Stripe from "stripe";
+import { shippingService } from "./services/shipping";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error("Missing required Stripe secret: STRIPE_SECRET_KEY");
@@ -226,6 +227,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Shipping routes
+  app.post("/api/shipping/validate-address", async (req, res) => {
+    try {
+      const address = shippingAddressSchema.parse(req.body);
+      const validatedAddress = await shippingService.validateAddress(address);
+      res.json(validatedAddress);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid address data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to validate address" });
+    }
+  });
+
+  app.post("/api/shipping/calculate-rates", async (req, res) => {
+    try {
+      const { fromAddress, toAddress, parcelDetails } = req.body;
+
+      // Validate addresses
+      const validFromAddress = shippingAddressSchema.parse(fromAddress);
+      const validToAddress = shippingAddressSchema.parse(toAddress);
+
+      const rates = await shippingService.getShippingRates(
+        validFromAddress,
+        validToAddress,
+        parcelDetails
+      );
+
+      res.json(rates);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid address data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to calculate shipping rates" });
+    }
+  });
+
 
   // Chat routes
   app.get("/api/models", async (req, res) => {
