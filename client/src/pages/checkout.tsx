@@ -38,17 +38,23 @@ function CheckoutForm() {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRecaptchaLoaded, setIsRecaptchaLoaded] = useState(false);
   const { toast } = useToast();
   const { state: { total }, clearCart } = useCart();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    const loadRecaptcha = async () => {
-      const script = document.createElement('script');
-      script.src = `https://www.google.com/recaptcha/api.js?render=${import.meta.env.VITE_RECAPTCHA_SITE_KEY}`;
-      document.body.appendChild(script);
+    // Load reCAPTCHA v3
+    const script = document.createElement('script');
+    script.src = `https://www.google.com/recaptcha/api.js?render=${import.meta.env.VITE_RECAPTCHA_SITE_KEY}`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setIsRecaptchaLoaded(true);
+    document.head.appendChild(script);
+
+    return () => {
+      document.head.removeChild(script);
     };
-    loadRecaptcha();
   }, []);
 
   const form = useForm<BillingForm>({
@@ -62,7 +68,7 @@ function CheckoutForm() {
   });
 
   const handleSubmit = async (data: BillingForm) => {
-    if (!stripe || !elements) {
+    if (!stripe || !elements || !isRecaptchaLoaded) {
       return;
     }
 
@@ -172,7 +178,7 @@ function CheckoutForm() {
             <FormItem>
               <FormLabel>Postal Code</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="12345" />
+                <Input type="text" {...field} placeholder="12345" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -184,22 +190,31 @@ function CheckoutForm() {
             type: 'tabs',
             defaultCollapsed: false,
           },
-          business: {
-            name: 'Faith Hikers Store'
-          },
           fields: {
-            billingDetails: 'never'
+            billingDetails: {
+              name: 'never',
+              email: 'never',
+              phone: 'never',
+              address: {
+                line1: 'never',
+                line2: 'never',
+                city: 'never',
+                state: 'never',
+                country: 'never',
+                postalCode: 'never'
+              }
+            }
           },
           wallets: {
             applePay: 'never',
             googlePay: 'never'
-          },
+          }
         }} />
 
         <Button 
           type="submit" 
           className="w-full" 
-          disabled={isProcessing || !stripe}
+          disabled={isProcessing || !stripe || !isRecaptchaLoaded}
         >
           {isProcessing ? (
             <>
