@@ -14,8 +14,7 @@ import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ShippingAddressForm } from "@/components/forms/ShippingAddressForm";
-import type { ShippingAddress, ShippingRate } from "@shared/schema";
+import type { ShippingRate } from "@shared/schema";
 
 if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
   throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
@@ -28,7 +27,6 @@ function CheckoutForm() {
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null);
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
   const { toast } = useToast();
@@ -53,88 +51,63 @@ function CheckoutForm() {
     mode: "onChange",
   });
 
-  const handleAddressValidated = async (address: ShippingAddress) => {
-    setShippingAddress(address);
-
-    try {
-      const response = await apiRequest("POST", "/api/shipping/calculate-rates", {
-        fromAddress: {
-          firstName: "Store",
-          lastName: "Admin",
-          address1: "1234 Store St",
-          city: "Napa",
-          state: "CA",
-          postalCode: "94559",
-          country: "US",
-          phone: "1234567890"
-        },
-        toAddress: address,
-        parcelDetails: {
-          weight: 1.0,
-          length: 12.0,
-          width: 8.0,
-          height: 6.0
-        }
-      });
-
-      const rates = await response.json();
-      setShippingRates(rates);
-
-      if (rates.length > 0) {
-        // Select first rate and create payment intent
-        const firstRate = rates[0];
-        setSelectedRate(firstRate);
-
-        // Create payment intent with total + shipping
-        const response = await apiRequest("POST", "/api/create-payment-intent", {
-          amount: total + firstRate.rate
+  // Load shipping rates on component mount
+  useEffect(() => {
+    const loadShippingRates = async () => {
+      try {
+        const response = await apiRequest("POST", "/api/shipping/calculate-rates", {
+          fromAddress: {
+            firstName: "Store",
+            lastName: "Admin",
+            address1: "1234 Store St",
+            city: "Napa",
+            state: "CA",
+            postalCode: "94559",
+            country: "US",
+            phone: "1234567890"
+          },
+          toAddress: {
+            firstName: "Customer",
+            lastName: "Name",
+            address1: "Customer Address",
+            city: "Customer City",
+            state: "CA",
+            postalCode: "90210",
+            country: "US",
+            phone: "1234567890"
+          },
+          parcelDetails: {
+            weight: 1.0,
+            length: 12.0,
+            width: 8.0,
+            height: 6.0
+          }
         });
-        const { clientSecret } = await response.json();
 
-        // Update the URL with client secret
-        const searchParams = new URLSearchParams(window.location.search);
-        searchParams.set("payment_intent_client_secret", clientSecret);
-        const newUrl = `${window.location.pathname}?${searchParams.toString()}`;
-        window.history.pushState({}, "", newUrl);
+        const rates = await response.json();
+        setShippingRates(rates);
+
+        if (rates.length > 0) {
+          setSelectedRate(rates[0]);
+        }
+      } catch (error: any) {
+        toast({
+          title: "Error Loading Shipping Rates",
+          description: error.message || "Failed to load shipping rates",
+          variant: "destructive",
+        });
       }
-    } catch (error: any) {
-      toast({
-        title: "Error Calculating Shipping",
-        description: error.message || "Failed to calculate shipping rates",
-        variant: "destructive",
-      });
-    }
-  };
+    };
 
-  const handleRateSelection = async (rate: ShippingRate) => {
-    setSelectedRate(rate);
-    try {
-      // Create new payment intent with updated total
-      const response = await apiRequest("POST", "/api/create-payment-intent", {
-        amount: total + rate.rate
-      });
-      const { clientSecret } = await response.json();
-
-      // Update the URL with new client secret
-      const searchParams = new URLSearchParams(window.location.search);
-      searchParams.set("payment_intent_client_secret", clientSecret);
-      const newUrl = `${window.location.pathname}?${searchParams.toString()}`;
-      window.history.pushState({}, "", newUrl);
-    } catch (error: any) {
-      toast({
-        title: "Error Updating Payment",
-        description: error.message || "Failed to update payment details",
-        variant: "destructive",
-      });
-    }
-  };
+    loadShippingRates();
+  }, []);
 
   const handlePaymentChange = (event: any) => {
     setPaymentError(event.error ? event.error.message : null);
   };
 
   const handleSubmit = async (data: BillingForm) => {
-    if (!stripe || !elements || !shippingAddress || !selectedRate) {
+    if (!stripe || !elements || !selectedRate) {
       return;
     }
 
@@ -150,19 +123,7 @@ function CheckoutForm() {
             billing_details: {
               name: data.name,
               email: data.email,
-            },
-            shipping: {
-              name: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
-              address: {
-                line1: shippingAddress.address1,
-                line2: shippingAddress.address2,
-                city: shippingAddress.city,
-                state: shippingAddress.state,
-                postal_code: shippingAddress.postalCode,
-                country: 'US',
-              },
-              phone: shippingAddress.phone,
-            },
+            }
           },
         },
       });
@@ -173,11 +134,6 @@ function CheckoutForm() {
 
       clearCart();
       setLocation('/order-confirmation');
-
-      toast({
-        title: "Payment Successful",
-        description: "Thank you for your purchase!",
-      });
     } catch (err: any) {
       setPaymentError(err.message);
       toast({
@@ -191,139 +147,130 @@ function CheckoutForm() {
   };
 
   return (
-    <div className="space-y-6">
-      {!shippingAddress ? (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div>
-          <h2 className="text-lg font-semibold mb-4">Shipping Information</h2>
-          <ShippingAddressForm onAddressValidated={handleAddressValidated} />
-        </div>
-      ) : (
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-            <div>
-              <h2 className="text-lg font-semibold mb-4">Shipping Method</h2>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="space-y-4">
-                    {shippingRates.map((rate) => (
-                      <div
-                        key={`${rate.carrier}-${rate.service}`}
-                        className={`p-4 border rounded-lg cursor-pointer flex items-center justify-between ${
-                          selectedRate?.service === rate.service ? 'border-primary bg-primary/5' : ''
-                        }`}
-                        onClick={() => handleRateSelection(rate)}
-                      >
-                        <div className="flex items-center space-x-4">
-                          <TruckIcon className="h-5 w-5" />
-                          <div>
-                            <p className="font-medium">{rate.carrier} - {rate.service}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Estimated delivery: {rate.estimatedDays} days
-                            </p>
-                          </div>
-                        </div>
-                        <p className="font-semibold">${rate.rate.toFixed(2)}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div>
-              <h2 className="text-lg font-semibold mb-4">Payment Information</h2>
-              <Card>
-                <CardContent className="pt-6 space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Full Name</FormLabel>
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            placeholder="John Doe"
-                            className={form.formState.errors.name ? "border-red-500" : ""}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="email" 
-                            {...field} 
-                            placeholder="john@example.com"
-                            className={form.formState.errors.email ? "border-red-500" : ""}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <PaymentElement 
-                    onChange={handlePaymentChange}
-                    options={{
-                      layout: {
-                        type: 'tabs',
-                        defaultCollapsed: false,
-                      }
-                    }} 
-                  />
-
-                  {paymentError && (
-                    <div className="flex items-center gap-2 text-red-500 text-sm">
-                      <AlertCircle className="h-4 w-4" />
-                      <span>{paymentError}</span>
-                    </div>
-                  )}
-
-                  <div className="pt-4 border-t">
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Subtotal</span>
-                      <span>${total.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Shipping</span>
-                      <span>${selectedRate?.rate.toFixed(2) || '0.00'}</span>
-                    </div>
-                    <div className="flex justify-between font-semibold text-lg">
-                      <span>Total</span>
-                      <span>${(total + (selectedRate?.rate || 0)).toFixed(2)}</span>
-                    </div>
-                  </div>
-
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={isProcessing || !stripe || !form.formState.isValid}
+          <h2 className="text-lg font-semibold mb-4">Shipping Method</h2>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                {shippingRates.map((rate) => (
+                  <div
+                    key={`${rate.carrier}-${rate.service}`}
+                    className={`p-4 border rounded-lg cursor-pointer flex items-center justify-between ${
+                      selectedRate?.service === rate.service ? 'border-primary bg-primary/5' : ''
+                    }`}
+                    onClick={() => setSelectedRate(rate)}
                   >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      `Pay $${(total + (selectedRate?.rate || 0)).toFixed(2)}`
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </form>
-        </Form>
-      )}
-    </div>
+                    <div className="flex items-center space-x-4">
+                      <TruckIcon className="h-5 w-5" />
+                      <div>
+                        <p className="font-medium">{rate.carrier} - {rate.service}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Estimated delivery: {rate.estimatedDays} days
+                        </p>
+                      </div>
+                    </div>
+                    <p className="font-semibold">${rate.rate.toFixed(2)}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Payment Information</h2>
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name</FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field} 
+                        placeholder="John Doe"
+                        className={form.formState.errors.name ? "border-red-500" : ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="email" 
+                        {...field} 
+                        placeholder="john@example.com"
+                        className={form.formState.errors.email ? "border-red-500" : ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <PaymentElement 
+                onChange={handlePaymentChange}
+                options={{
+                  layout: {
+                    type: 'tabs',
+                    defaultCollapsed: false,
+                  }
+                }} 
+              />
+
+              {paymentError && (
+                <div className="flex items-center gap-2 text-red-500 text-sm">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{paymentError}</span>
+                </div>
+              )}
+
+              <div className="pt-4 border-t">
+                <div className="flex justify-between text-sm mb-2">
+                  <span>Subtotal</span>
+                  <span>${total.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span>Shipping</span>
+                  <span>${selectedRate?.rate.toFixed(2) || '0.00'}</span>
+                </div>
+                <div className="flex justify-between font-semibold text-lg">
+                  <span>Total</span>
+                  <span>${(total + (selectedRate?.rate || 0)).toFixed(2)}</span>
+                </div>
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isProcessing || !stripe || !form.formState.isValid}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  `Pay $${(total + (selectedRate?.rate || 0)).toFixed(2)}`
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </form>
+    </Form>
   );
 }
 
@@ -331,14 +278,17 @@ export default function Checkout() {
   const [clientSecret, setClientSecret] = useState<string>("");
   const { state: { total, items } } = useCart();
 
-  // Get client secret from URL
+  // Create payment intent when component mounts
   useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const secret = searchParams.get("payment_intent_client_secret");
-    if (secret) {
-      setClientSecret(secret);
+    if (items.length > 0) {
+      apiRequest("POST", "/api/create-payment-intent", { amount: total })
+        .then((res) => res.json())
+        .then((data) => setClientSecret(data.clientSecret))
+        .catch((error) => {
+          console.error("Failed to create payment intent:", error);
+        });
     }
-  }, []);
+  }, [total, items]);
 
   if (items.length === 0) {
     return (
@@ -359,31 +309,36 @@ export default function Checkout() {
     );
   }
 
+  if (!clientSecret) {
+    return (
+      <MainLayout>
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-2xl mx-auto">
+            <Card>
+              <CardContent className="flex justify-center p-4">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
           <Card>
             <CardContent>
-              {clientSecret ? (
-                <Elements stripe={stripePromise} options={{ 
-                  clientSecret,
-                  appearance: {
-                    theme: 'stripe',
-                  },
-                }}>
-                  <CheckoutForm />
-                </Elements>
-              ) : (
-                <ShippingAddressForm
-                  onAddressValidated={(address) => {
-                    const form = document.createElement('form');
-                    form.method = 'POST';
-                    document.body.appendChild(form);
-                    form.submit();
-                  }}
-                />
-              )}
+              <Elements stripe={stripePromise} options={{ 
+                clientSecret,
+                appearance: {
+                  theme: 'stripe',
+                }
+              }}>
+                <CheckoutForm />
+              </Elements>
             </CardContent>
           </Card>
         </div>
