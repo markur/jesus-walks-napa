@@ -87,17 +87,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/users", async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
-      
+
       const existingUser = await storage.getUserByUsername(userData.username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already taken" });
       }
-      
+
       const existingEmail = await storage.getUserByEmail(userData.email);
       if (existingEmail) {
         return res.status(400).json({ message: "Email already registered" });
       }
-      
+
       const user = await storage.createUser(userData);
       res.status(201).json(user);
     } catch (error) {
@@ -135,17 +135,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/registrations", async (req, res) => {
     try {
       const registrationData = insertRegistrationSchema.parse(req.body);
-      
+
       const event = await storage.getEvent(registrationData.eventId);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
-      
+
       const registrations = await storage.getEventRegistrations(registrationData.eventId);
       if (registrations.length >= event.capacity) {
         return res.status(400).json({ message: "Event is at full capacity" });
       }
-      
+
       const registration = await storage.createRegistration(registrationData);
       res.status(201).json(registration);
     } catch (error) {
@@ -160,12 +160,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/waitlist", async (req, res) => {
     try {
       const waitlistData = insertWaitlistSchema.parse(req.body);
-      
+
       const isEmailRegistered = await storage.isEmailInWaitlist(waitlistData.email);
       if (isEmailRegistered) {
         return res.status(400).json({ message: "Email already in waitlist" });
       }
-      
+
       const entry = await storage.addToWaitlist(waitlistData);
       res.status(201).json(entry);
     } catch (error) {
@@ -220,13 +220,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ clientSecret: paymentIntent.client_secret });
     } catch (error: any) {
       console.error("Stripe error:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Error creating payment intent",
-        details: error.message 
+        details: error.message
       });
+    }
+  });
+
+  // Chat routes
+  app.get("/api/models", async (req, res) => {
+    try {
+      const models = await storage.getActiveModelConfigs();
+      res.json(models);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch models" });
+    }
+  });
+
+  app.get("/api/conversations", async (req, res) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const conversations = await storage.getUserConversations(req.session.userId);
+      res.json(conversations);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch conversations" });
+    }
+  });
+
+  app.post("/api/conversations", async (req, res) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const conversationData = {
+        ...req.body,
+        userId: req.session.userId,
+      };
+      const conversation = await storage.createConversation(conversationData);
+      res.status(201).json(conversation);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create conversation" });
+    }
+  });
+
+  app.get("/api/conversations/:id/messages", async (req, res) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const conversation = await storage.getConversation(parseInt(req.params.id));
+      if (!conversation || conversation.userId !== req.session.userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const messages = await storage.getConversationMessages(conversation.id);
+      res.json(messages);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  app.post("/api/conversations/:id/messages", async (req, res) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const conversation = await storage.getConversation(parseInt(req.params.id));
+      if (!conversation || conversation.userId !== req.session.userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Create user message
+      const userMessage = await storage.createMessage({
+        conversationId: conversation.id,
+        role: 'user',
+        content: req.body.content,
+        tokens: await countTokens(req.body.content),
+      });
+
+      // Get model config and generate response
+      const modelConfig = await storage.getModelConfig(conversation.modelConfigId);
+      if (!modelConfig) {
+        throw new Error("Model configuration not found");
+      }
+
+      const messages = await storage.getConversationMessages(conversation.id);
+      const response = await generateChatResponse(
+        messages.map(m => ({ role: m.role as 'user' | 'assistant' | 'system', content: m.content })),
+        modelConfig
+      );
+
+      // Create assistant message
+      const assistantMessage = await storage.createMessage({
+        conversationId: conversation.id,
+        role: 'assistant',
+        content: response,
+        tokens: await countTokens(response),
+      });
+
+      res.json({
+        userMessage,
+        assistantMessage,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to process message" });
     }
   });
 
   const httpServer = createServer(app);
   return httpServer;
+}
+
+// Placeholder functions -  Replace with your actual implementations
+async function countTokens(text: string): Promise<number> {
+  //  Implementation to count tokens (e.g., using a library)
+  return text.split(" ").length; 
+}
+
+async function generateChatResponse(messages: any[], modelConfig: any): Promise<string> {
+  // Implementation to generate a chat response using the modelConfig
+  return "This is a placeholder response.";
 }

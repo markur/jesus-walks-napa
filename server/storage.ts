@@ -1,5 +1,5 @@
-import { users, events, registrations, waitlist, products, orders, orderItems } from "@shared/schema";
-import type { User, Event, Registration, Waitlist, Product, Order, OrderItem, InsertUser, InsertEvent, InsertRegistration, InsertWaitlist, InsertProduct, InsertOrder, InsertOrderItem } from "@shared/schema";
+import { users, events, registrations, waitlist, products, orders, orderItems, modelConfigs, conversations, messages } from "@shared/schema";
+import type { User, Event, Registration, Waitlist, Product, Order, OrderItem, InsertUser, InsertEvent, InsertRegistration, InsertWaitlist, InsertProduct, InsertOrder, InsertOrderItem, ModelConfig, InsertModelConfig, Conversation, InsertConversation, Message, InsertMessage } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import session from "express-session";
@@ -51,6 +51,21 @@ export interface IStorage {
 
   // Session store
   sessionStore: session.Store;
+
+  // Model config operations
+  getModelConfig(id: number): Promise<ModelConfig | undefined>;
+  getAllModelConfigs(): Promise<ModelConfig[]>;
+  createModelConfig(config: InsertModelConfig): Promise<ModelConfig>;
+  getActiveModelConfigs(): Promise<ModelConfig[]>;
+
+  // Conversation operations
+  getConversation(id: number): Promise<Conversation | undefined>;
+  getUserConversations(userId: number): Promise<Conversation[]>;
+  createConversation(conversation: InsertConversation): Promise<Conversation>;
+
+  // Message operations
+  getConversationMessages(conversationId: number): Promise<Message[]>;
+  createMessage(message: InsertMessage): Promise<Message>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -196,6 +211,50 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return updatedUser;
+  }
+
+  async getModelConfig(id: number): Promise<ModelConfig | undefined> {
+    const [config] = await db.select().from(modelConfigs).where(eq(modelConfigs.id, id));
+    return config;
+  }
+
+  async getAllModelConfigs(): Promise<ModelConfig[]> {
+    return await db.select().from(modelConfigs);
+  }
+
+  async getActiveModelConfigs(): Promise<ModelConfig[]> {
+    return await db.select().from(modelConfigs).where(eq(modelConfigs.active, true));
+  }
+
+  async createModelConfig(config: InsertModelConfig): Promise<ModelConfig> {
+    const [newConfig] = await db.insert(modelConfigs).values(config).returning();
+    return newConfig;
+  }
+
+  async getConversation(id: number): Promise<Conversation | undefined> {
+    const [conversation] = await db.select().from(conversations).where(eq(conversations.id, id));
+    return conversation;
+  }
+
+  async getUserConversations(userId: number): Promise<Conversation[]> {
+    return await db.select().from(conversations).where(eq(conversations.userId, userId));
+  }
+
+  async createConversation(conversation: InsertConversation): Promise<Conversation> {
+    const [newConversation] = await db.insert(conversations).values(conversation).returning();
+    return newConversation;
+  }
+
+  async getConversationMessages(conversationId: number): Promise<Message[]> {
+    return await db.select()
+      .from(messages)
+      .where(eq(messages.conversationId, conversationId))
+      .orderBy(messages.createdAt);
+  }
+
+  async createMessage(message: InsertMessage): Promise<Message> {
+    const [newMessage] = await db.insert(messages).values(message).returning();
+    return newMessage;
   }
 }
 

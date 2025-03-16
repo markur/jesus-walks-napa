@@ -160,3 +160,65 @@ export const shippingAddressSchema = z.object({
 });
 
 export type ShippingAddress = z.infer<typeof shippingAddressSchema>;
+
+
+// Add new tables for AI chat functionality
+export const modelConfigs = pgTable("model_configs", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  provider: text("provider").notNull(), // 'openai', 'anthropic', etc.
+  modelId: text("model_id").notNull(), // 'gpt-4o', 'gpt-3.5-turbo', etc.
+  temperature: decimal("temperature").notNull(),
+  maxTokens: integer("max_tokens").notNull(),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  title: text("title").notNull(),
+  modelConfigId: integer("model_config_id").references(() => modelConfigs.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").references(() => conversations.id).notNull(),
+  role: text("role").notNull(), // 'user', 'assistant', 'system'
+  content: text("content").notNull(),
+  tokens: integer("tokens"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Add schemas for the new tables
+export const insertModelConfigSchema = createInsertSchema(modelConfigs).pick({
+  name: true,
+  provider: true,
+  modelId: true,
+  temperature: true,
+  maxTokens: true,
+  active: true,
+});
+
+export const insertConversationSchema = createInsertSchema(conversations).pick({
+  userId: true,
+  title: true,
+  modelConfigId: true,
+});
+
+export const insertMessageSchema = createInsertSchema(messages).pick({
+  conversationId: true,
+  role: true,
+  content: true,
+  tokens: true,
+});
+
+// Add types for the new schemas
+export type ModelConfig = typeof modelConfigs.$inferSelect;
+export type Conversation = typeof conversations.$inferSelect;
+export type Message = typeof messages.$inferSelect;
+export type InsertModelConfig = z.infer<typeof insertModelConfigSchema>;
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
