@@ -38,24 +38,9 @@ function CheckoutForm() {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isRecaptchaLoaded, setIsRecaptchaLoaded] = useState(false);
   const { toast } = useToast();
   const { state: { total }, clearCart } = useCart();
   const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    // Load reCAPTCHA v3
-    const script = document.createElement('script');
-    script.src = `https://www.google.com/recaptcha/api.js?render=${import.meta.env.VITE_RECAPTCHA_SITE_KEY}`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => setIsRecaptchaLoaded(true);
-    document.head.appendChild(script);
-
-    return () => {
-      document.head.removeChild(script);
-    };
-  }, []);
 
   const form = useForm<BillingForm>({
     resolver: zodResolver(billingSchema),
@@ -68,7 +53,7 @@ function CheckoutForm() {
   });
 
   const handleSubmit = async (data: BillingForm) => {
-    if (!stripe || !elements || !isRecaptchaLoaded) {
+    if (!stripe || !elements || !(window as any).grecaptcha) {
       return;
     }
 
@@ -82,12 +67,7 @@ function CheckoutForm() {
       );
 
       if (!recaptchaToken) {
-        toast({
-          title: "Verification Failed",
-          description: "Please try again",
-          variant: "destructive",
-        });
-        return;
+        throw new Error("Could not verify you are human");
       }
 
       const { error } = await stripe.confirmPayment({
@@ -109,19 +89,15 @@ function CheckoutForm() {
       });
 
       if (error) {
-        toast({
-          title: "Payment Failed",
-          description: error.message || "Please check your details and try again.",
-          variant: "destructive",
-        });
-      } else {
-        clearCart();
-        setLocation('/order-confirmation');
+        throw error;
       }
+
+      clearCart();
+      setLocation('/order-confirmation');
     } catch (err: any) {
       toast({
-        title: "Error",
-        description: err.message || "An unexpected error occurred.",
+        title: "Payment Failed",
+        description: err.message || "Please check your details and try again.",
         variant: "destructive",
       });
     } finally {
@@ -178,7 +154,7 @@ function CheckoutForm() {
             <FormItem>
               <FormLabel>Postal Code</FormLabel>
               <FormControl>
-                <Input type="text" {...field} placeholder="12345" />
+                <Input {...field} placeholder="12345" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -191,19 +167,7 @@ function CheckoutForm() {
             defaultCollapsed: false,
           },
           fields: {
-            billingDetails: {
-              name: 'never',
-              email: 'never',
-              phone: 'never',
-              address: {
-                line1: 'never',
-                line2: 'never',
-                city: 'never',
-                state: 'never',
-                country: 'never',
-                postalCode: 'never'
-              }
-            }
+            billingDetails: 'never',
           },
           wallets: {
             applePay: 'never',
@@ -214,7 +178,7 @@ function CheckoutForm() {
         <Button 
           type="submit" 
           className="w-full" 
-          disabled={isProcessing || !stripe || !isRecaptchaLoaded}
+          disabled={isProcessing || !stripe}
         >
           {isProcessing ? (
             <>
@@ -254,9 +218,7 @@ export default function Checkout() {
               <CardContent className="p-8 text-center">
                 <p className="text-muted-foreground mb-6">Your cart is empty</p>
                 <Link href="/shop">
-                  <Button>
-                    Continue Shopping
-                  </Button>
+                  <Button>Continue Shopping</Button>
                 </Link>
               </CardContent>
             </Card>
