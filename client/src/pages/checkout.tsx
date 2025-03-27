@@ -42,6 +42,11 @@ function CheckoutForm() {
       .email("Please enter a valid email address")
       .min(5, "Email must be at least 5 characters")
       .max(50, "Email cannot exceed 50 characters"),
+    address1: z.string().min(5, "Address must be at least 5 characters"),
+    city: z.string().min(2, "City must be at least 2 characters"),
+    state: z.string().min(2, "State must be at least 2 characters"),
+    postalCode: z.string().min(5, "Postal code must be at least 5 characters"),
+    country: z.string().min(2, "Country must be at least 2 characters"),
   });
 
   type BillingForm = z.infer<typeof billingSchema>;
@@ -49,6 +54,9 @@ function CheckoutForm() {
   const form = useForm<BillingForm>({
     resolver: zodResolver(billingSchema),
     mode: "onChange",
+    defaultValues: {
+      country: "US"
+    }
   });
 
   // Load shipping rates on component mount
@@ -91,11 +99,16 @@ function CheckoutForm() {
           setSelectedRate(rates[0]);
         }
       } catch (error: any) {
-        toast({
-          title: "Error Loading Shipping Rates",
-          description: error.message || "Failed to load shipping rates",
-          variant: "destructive",
-        });
+        // Don't show error toast for shipping rates, just use a flat rate
+        const flatRate = {
+          carrier: "Standard Shipping",
+          service: "Ground",
+          rate: 5.99,
+          estimatedDays: 5,
+          trackingAvailable: true
+        };
+        setShippingRates([flatRate]);
+        setSelectedRate(flatRate);
       }
     };
 
@@ -123,6 +136,13 @@ function CheckoutForm() {
             billing_details: {
               name: data.name,
               email: data.email,
+              address: {
+                line1: data.address1,
+                city: data.city,
+                state: data.state,
+                postal_code: data.postalCode,
+                country: data.country
+              }
             }
           },
         },
@@ -180,20 +200,56 @@ function CheckoutForm() {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold mb-4">Payment Information</h2>
+          <h2 className="text-lg font-semibold mb-4">Billing & Shipping Information</h2>
           <Card>
             <CardContent className="pt-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="John Doe"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="email" 
+                          {...field} 
+                          placeholder="john@example.com"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <FormField
                 control={form.control}
-                name="name"
+                name="address1"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Full Name</FormLabel>
+                    <FormLabel>Address</FormLabel>
                     <FormControl>
                       <Input 
                         {...field} 
-                        placeholder="John Doe"
-                        className={form.formState.errors.name ? "border-red-500" : ""}
+                        placeholder="123 Main St"
                       />
                     </FormControl>
                     <FormMessage />
@@ -201,25 +257,79 @@ function CheckoutForm() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="email" 
-                        {...field} 
-                        placeholder="john@example.com"
-                        className={form.formState.errors.email ? "border-red-500" : ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="City"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>State</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="CA"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="postalCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Postal Code</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="12345"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Country</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="US"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <h3 className="text-md font-semibold mt-4">Payment Method</h3>
               <PaymentElement 
                 onChange={handlePaymentChange}
                 options={{
@@ -255,7 +365,7 @@ function CheckoutForm() {
               <Button 
                 type="submit" 
                 className="w-full" 
-                disabled={isProcessing || !stripe || !form.formState.isValid}
+                disabled={isProcessing || !stripe || !elements}
               >
                 {isProcessing ? (
                   <>
