@@ -1,0 +1,145 @@
+2025-03-29 14:00:42.90
+381f5f26
+User
+throw new Error(
+2025-03-29 14:00:42.90
+381f5f26
+User
+^
+2025-03-29 14:00:42.90
+381f5f26
+User
+2025-03-29 14:00:42.90
+381f5f26
+User
+Error: DATABASE_URL must be set. Please add this secret to your deployment by going to the Deployments tab and adding it as a secret.
+2025-03-29 14:00:42.90
+381f5f26
+User
+at file:///home/runner/workspace/dist/index.js:220:9
+2025-03-29 14:00:42.90
+381f5f26
+User
+at ModuleJob.run (node:internal/modules/esm/module_job:234:25)
+2025-03-29 14:00:42.90
+381f5f26
+User
+at async ModuleLoader.import (node:internal/modules/esm/loader:473:24)
+2025-03-29 14:00:42.90
+381f5f26
+User
+at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:122:5)
+2025-03-29 14:00:42.90
+381f5f26
+User
+2025-03-29 14:00:42.90
+381f5f26
+User
+Node.js v20.18.1
+2025-03-29 14:00:42.91
+381f5f26
+System
+command finished with error [sh -c NODE_ENV=production node dist/index.js]: exit status 1
+2025-03-29 14:00:53.25
+381f5f26
+User
+ERROR: DATABASE_URL must be set in production environment
+2025-03-29 14:00:53.25
+381f5f26
+User
+file:///home/runner/workspace/dist/index.js:220
+2025-03-29 14:00:53.25
+381f5f26
+User
+throw new Error(
+2025-03-29 14:00:53.25
+381f5f26
+User
+^
+2025-03-29 14:00:53.25
+381f5f26
+User
+2025-03-29 14:00:53.25
+381f5f26
+User
+Error: DATABASE_URL must be set. Please add this secret to your deployment by going to the Deployments tab and adding it as a secret.
+2025-03-29 14:00:53.25
+381f5f26
+User
+at file:///home/runner/workspace/dist/index.js:220:9
+2025-03-29 14:00:53.25
+381f5f26
+User
+at ModuleJob.run (node:internal/modules/esm/module_job:234:25)
+2025-03-29 14:00:53.25
+381f5f26
+User
+at async ModuleLoader.import (node:internal/modules/esm/loader:473:24)
+2025-03-29 14:00:53.25
+381f5f26
+User
+at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:122:5)
+2025-03-29 14:00:53.25
+381f5f26
+User
+2025-03-29 14:00:53.25
+381f5f26
+User
+Node.js v20.18.1
+2025-03-29 14:00:53.26
+381f5f26
+System
+command finished with error [sh -c NODE_ENV=production node dist/index.js]: exit status 1
+2025-03-29 14:00:58.55
+381f5f26
+User
+ERROR: DATABASE_URL must be set in production environment
+2025-03-29 14:00:58.55
+381f5f26
+User
+file:///home/runner/workspace/dist/index.js:220
+2025-03-29 14:00:58.55
+381f5f26
+User
+throw new Error(
+2025-03-29 14:00:58.55
+381f5f26
+User
+^
+2025-03-29 14:00:58.55
+381f5f26
+User
+2025-03-29 14:00:58.55
+381f5f26
+User
+Error: DATABASE_URL must be set. Please add this secret to your deployment by going to the Deployments tab and adding it as a secret.
+2025-03-29 14:00:58.55
+381f5f26
+User
+at file:///home/runner/workspace/dist/index.js:220:9
+2025-03-29 14:00:58.55
+381f5f26
+User
+at ModuleJob.run (node:internal/modules/esm/module_job:234:25)
+2025-03-29 14:00:58.55
+381f5f26
+User
+at async ModuleLoader.import (node:internal/modules/esm/loader:473:24)
+2025-03-29 14:00:58.55
+381f5f26
+User
+at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:122:5)
+2025-03-29 14:00:58.55
+381f5f26
+User
+2025-03-29 14:00:58.55
+381f5f26
+User
+Node.js v20.18.1
+2025-03-29 14:00:58.57
+381f5f26
+System
+command finished with error [sh -c NODE_ENV=production node dist/index.js]: exit status 1
+2025-03-29 14:01:04.32
+381f5f26
+System
