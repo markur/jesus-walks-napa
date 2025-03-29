@@ -9,7 +9,7 @@ neonConfig.webSocketConstructor = ws;
 if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
   console.error("ERROR: DATABASE_URL must be set in production environment");
   throw new Error(
-    "DATABASE_URL must be set. Please add this secret to your deployment.",
+    "DATABASE_URL must be set. Please add this secret to your deployment by going to the Deployments tab and adding it as a secret.",
   );
 }
 
