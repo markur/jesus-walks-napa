@@ -22,6 +22,7 @@ for (const envVar of requiredEnvVars) {
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(express.static('public')); // Serve static files from the public directory
 
 const PgSession = connectPgSimple(session);
 app.use(
