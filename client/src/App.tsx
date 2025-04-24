@@ -10,6 +10,8 @@ import Register from "@/pages/register";
 import Login from "@/pages/login";
 import AdminDashboard from "@/pages/admin";
 import AdminProducts from "@/pages/admin/products";
+import AdminUsers from "@/pages/admin/users";
+import AdminOrders from "@/pages/admin/orders";
 import AdminSetup from "@/pages/admin-setup";
 import Shop from "@/pages/shop";
 import Cart from "@/pages/cart";
@@ -25,6 +27,8 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/products" component={AdminProducts} />
+      <Route path="/admin/users" component={AdminUsers} />
+      <Route path="/admin/orders" component={AdminOrders} />
       <Route path="/admin-setup" component={AdminSetup} />
       <Route path="/shop" component={Shop} />
       <Route path="/cart" component={Cart} />
