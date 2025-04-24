@@ -62,28 +62,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { username, password } = req.body;
 
     try {
+      console.log(`Login attempt for username: ${username}`);
       const user = await storage.getUserByUsername(username);
-      if (!user || user.password !== password) { // Note: In production, use proper password hashing
+      
+      if (!user) {
+        console.log(`Login failed: User ${username} not found`);
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      if (user.password !== password) { // Note: In production, use proper password hashing
+        console.log(`Login failed: Password mismatch for ${username}`);
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
       req.session.userId = user.id;
+      console.log(`Login successful for ${username} (User ID: ${user.id}, Admin: ${user.isAdmin})`);
+      console.log(`Session ID: ${req.session.id}`);
       res.json({ user });
     } catch (error) {
-      res.status(500).json({ message: "Failed to login" });
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Failed to login", error: error.message });
     }
   });
 
   app.get("/api/auth/me", async (req, res) => {
+    console.log(`Session check: ${req.session.id}, userId: ${req.session?.userId || 'not set'}`);
+    
     if (!req.session?.userId) {
+      console.log('No userId in session, returning null');
       return res.json(null);
     }
 
     try {
       const user = await storage.getUser(req.session.userId);
+      if (user) {
+        console.log(`Found user: ${user.username} (ID: ${user.id}, Admin: ${user.isAdmin})`);
+      } else {
+        console.log(`No user found with ID: ${req.session.userId}`);
+      }
       res.json(user || null);
     } catch (error) {
-      res.status(500).json({ message: "Failed to get user" });
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to get user", error: error.message });
     }
   });
 

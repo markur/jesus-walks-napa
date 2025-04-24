@@ -4,6 +4,7 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import "./types"; // Import type definitions for session
 
 // Check required environment variables
 const requiredEnvVars = [
@@ -36,8 +37,11 @@ app.use(
     saveUninitialized: false,
     cookie: {
       secure: process.env.NODE_ENV === "production",
+      sameSite: "lax", // Helps with cross-site request issues
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      httpOnly: true, // Prevents client-side JS from reading the cookie
     },
+    proxy: true, // Trust the reverse proxy when setting secure cookies
   })
 );
 
