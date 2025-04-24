@@ -30,6 +30,35 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Special route to create an admin user (for initial setup)
+  app.post("/api/create-admin", async (req, res) => {
+    try {
+      const { username, password, email } = req.body;
+      
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already taken" });
+      }
+
+      const existingEmail = await storage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+
+      const user = await storage.createUser({
+        username,
+        password,
+        email,
+        isAdmin: true
+      });
+      
+      req.session.userId = user.id;
+      res.status(201).json({ message: "Admin user created successfully", user });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create admin user" });
+    }
+  });
+
   // Auth routes
   app.post("/api/auth/login", async (req, res) => {
     const { username, password } = req.body;
