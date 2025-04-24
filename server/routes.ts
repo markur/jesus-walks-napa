@@ -5,6 +5,10 @@ import { insertUserSchema, insertEventSchema, insertRegistrationSchema, insertWa
 import { z } from "zod";
 import Stripe from "stripe";
 import { shippingService } from "./services/shipping";
+import multer from "multer";
+import fs from "fs";
+import path from "path";
+import { promisify } from "util";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   console.warn("Warning: Missing STRIPE_SECRET_KEY. Payment features will be disabled.");
@@ -26,6 +30,51 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
   next();
 };
+
+// Setup multer for file uploads
+const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+const productUploadsDir = path.join(uploadDir, 'products');
+
+// Create upload directories if they don't exist
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  if (!fs.existsSync(productUploadsDir)) {
+    fs.mkdirSync(productUploadsDir);
+  }
+} catch (err) {
+  console.error("Error creating upload directories:", err);
+}
+
+// Configure storage
+const multerStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, productUploadsDir);
+  },
+  filename: function (req, file, cb) {
+    // Ensure unique filename with timestamp and preserve extension
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, uniqueSuffix + ext);
+  }
+});
+
+const upload = multer({ 
+  storage: multerStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept images only
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)) {
+      return cb(null, false);
+    }
+    cb(null, true);
+  }
+});
+
+const writeFileAsync = promisify(fs.writeFile);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Special route to create an admin user (for initial setup)
@@ -231,6 +280,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid email", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to add to waitlist" });
+    }
+  });
+
+  // File upload route for product images
+  app.post("/api/upload/product-image", requireAdmin, upload.single('image'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Return the file URL for client-side use
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const relativePath = `/uploads/products/${req.file.filename}`;
+      const imageUrl = `${baseUrl}${relativePath}`;
+
+      res.json({ 
+        imageUrl,
+        filename: req.file.filename,
+        success: true 
+      });
+    } catch (error) {
+      console.error("File upload error:", error);
+      res.status(500).json({ message: "Failed to upload file", error: String(error) });
+    }
+  });
+
+  // Handle base64 image uploads
+  app.post("/api/upload/base64-image", requireAdmin, async (req, res) => {
+    try {
+      const { imageData, filename = "clipboard-image" } = req.body;
+      
+      if (!imageData) {
+        return res.status(400).json({ message: "No image data provided" });
+      }
+
+      // Extract the base64 data - remove data URI prefix
+      const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
+      
+      // Create a unique filename
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const fileExt = imageData.substring(imageData.indexOf('/') + 1, imageData.indexOf(';base64'));
+      const safeName = `${filename.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${uniqueSuffix}.${fileExt || 'png'}`;
+      
+      // Save the file
+      const filePath = path.join(productUploadsDir, safeName);
+      await writeFileAsync(filePath, base64Data, 'base64');
+      
+      // Return the image URL
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const relativePath = `/uploads/products/${safeName}`;
+      const imageUrl = `${baseUrl}${relativePath}`;
+
+      res.json({ 
+        imageUrl,
+        filename: safeName,
+        success: true 
+      });
+    } catch (error) {
+      console.error("Base64 upload error:", error);
+      res.status(500).json({ message: "Failed to process image", error: String(error) });
     }
   });
 
