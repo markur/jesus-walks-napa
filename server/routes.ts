@@ -116,6 +116,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/users", async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
+      
+      // Check if this is the first user being created - if so, make them an admin
+      const users = await storage.getAllUsers();
+      const isFirstUser = users.length === 0;
+      
+      if (isFirstUser) {
+        userData.isAdmin = true;
+      }
 
       const existingUser = await storage.getUserByUsername(userData.username);
       if (existingUser) {
@@ -128,6 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const user = await storage.createUser(userData);
+      req.session.userId = user.id;
       res.status(201).json(user);
     } catch (error) {
       if (error instanceof z.ZodError) {

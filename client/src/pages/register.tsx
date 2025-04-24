@@ -26,14 +26,21 @@ export default function Register() {
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (data: InsertUser) => {
-      await apiRequest("POST", "/api/users", data);
+      const response = await apiRequest("POST", "/api/users", data);
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (user) => {
       toast({
         title: "Registration successful!",
-        description: "Welcome to Jesus Walkers!",
+        description: "Welcome to Jesus Walks Napa!",
       });
-      setLocation("/");
+      
+      // If the user is an admin, redirect to admin panel
+      if (user.isAdmin) {
+        setLocation("/admin");
+      } else {
+        setLocation("/");
+      }
     },
     onError: (error: Error) => {
       toast({
