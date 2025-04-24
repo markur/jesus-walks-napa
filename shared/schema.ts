@@ -103,6 +103,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
   email: true,
+  isAdmin: true,
 });
 
 export const insertEventSchema = createInsertSchema(events);
