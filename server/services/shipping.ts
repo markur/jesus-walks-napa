@@ -1,10 +1,15 @@
 import Easypost from "@easypost/api";
 import NodeGeocoder from "node-geocoder";
+import { default as axios } from "axios";
 import type { ShippingAddress } from "@shared/schema";
 
 if (!process.env.EASYPOST_API_KEY) {
   console.warn("Warning: Missing EASYPOST_API_KEY. Shipping features will be disabled.");
   process.env.EASYPOST_API_KEY = '';
+}
+
+if (!process.env.GOOGLE_MAPS_API_KEY) {
+  console.warn("Warning: Missing GOOGLE_MAPS_API_KEY. Address autocomplete features will be disabled.");
 }
 
 const easypost = new Easypost(process.env.EASYPOST_API_KEY);
@@ -28,7 +33,138 @@ export interface ShippingRate {
   trackingAvailable: boolean;
 }
 
+export interface AddressSuggestion {
+  description: string;
+  placeId: string;
+  mainText: string;
+  secondaryText: string;
+}
+
+export interface PostalCodeDetails {
+  city: string;
+  state: string;
+  country: string;
+}
+
 export class ShippingService {
+  // Get address suggestions using Google Places API
+  async getAddressSuggestions(query: string): Promise<AddressSuggestion[]> {
+    if (!process.env.GOOGLE_MAPS_API_KEY) {
+      return [];
+    }
+    
+    try {
+      const response = await axios.get(
+        'https://maps.googleapis.com/maps/api/place/autocomplete/json',
+        {
+          params: {
+            input: query,
+            types: 'address',
+            components: 'country:us', // Limit to US addresses
+            key: process.env.GOOGLE_MAPS_API_KEY
+          }
+        }
+      );
+
+      if (response.data.status !== 'OK') {
+        console.warn('Google Places API returned an error:', response.data.status);
+        return [];
+      }
+
+      return response.data.predictions.map((prediction: any) => ({
+        description: prediction.description,
+        placeId: prediction.place_id,
+        mainText: prediction.structured_formatting.main_text,
+        secondaryText: prediction.structured_formatting.secondary_text
+      }));
+    } catch (error) {
+      console.error('Error fetching address suggestions:', error);
+      return [];
+    }
+  }
+
+  // Get details for a specific place ID from Google Places API
+  async getAddressDetails(placeId: string): Promise<ShippingAddress | null> {
+    if (!process.env.GOOGLE_MAPS_API_KEY) {
+      return null;
+    }
+    
+    try {
+      const response = await axios.get(
+        'https://maps.googleapis.com/maps/api/place/details/json',
+        {
+          params: {
+            place_id: placeId,
+            fields: 'address_component,formatted_address',
+            key: process.env.GOOGLE_MAPS_API_KEY
+          }
+        }
+      );
+
+      if (response.data.status !== 'OK') {
+        console.warn('Google Places API returned an error:', response.data.status);
+        return null;
+      }
+
+      const result = response.data.result;
+      const components = result.address_components;
+      
+      // Extract address components
+      const streetNumber = components.find((c: any) => c.types.includes('street_number'))?.long_name || '';
+      const streetName = components.find((c: any) => c.types.includes('route'))?.long_name || '';
+      const city = components.find((c: any) => c.types.includes('locality'))?.long_name || 
+                   components.find((c: any) => c.types.includes('postal_town'))?.long_name || '';
+      const state = components.find((c: any) => c.types.includes('administrative_area_level_1'))?.short_name || '';
+      const postalCode = components.find((c: any) => c.types.includes('postal_code'))?.long_name || '';
+      const country = components.find((c: any) => c.types.includes('country'))?.short_name || 'US';
+      
+      // Parse subpremise (apt/suite number) if available
+      const subpremise = components.find((c: any) => c.types.includes('subpremise'))?.long_name || '';
+      
+      // Format address1 and address2
+      const address1 = streetNumber ? `${streetNumber} ${streetName}` : streetName;
+      const address2 = subpremise ? `Apt/Suite ${subpremise}` : '';
+      
+      return {
+        firstName: '',  // These fields must be filled by the user
+        lastName: '',
+        address1,
+        address2,
+        city,
+        state,
+        postalCode,
+        country,
+        phone: ''
+      };
+    } catch (error) {
+      console.error('Error fetching address details:', error);
+      return null;
+    }
+  }
+
+  // Get city and state from postal code
+  async getPostalCodeDetails(postalCode: string): Promise<PostalCodeDetails | null> {
+    try {
+      const results = await geocoder.geocode({
+        zipcode: postalCode,
+        country: 'US'
+      });
+      
+      if (!results.length) {
+        return null;
+      }
+      
+      return {
+        city: results[0].city || '',
+        state: results[0].administrativeLevels?.level1short || '',
+        country: results[0].countryCode || 'US'
+      };
+    } catch (error) {
+      console.error('Error fetching postal code details:', error);
+      return null;
+    }
+  }
+
   async validateAddress(address: ShippingAddress): Promise<ValidatedAddress> {
     try {
       // First validate with geocoder
@@ -71,7 +207,7 @@ export class ShippingService {
         state: verifiedAddress.state,
         postalCode: verifiedAddress.zip,
         country: verifiedAddress.country,
-        phone: verifiedAddress.phone
+        phone: address.phone
       };
 
       return {

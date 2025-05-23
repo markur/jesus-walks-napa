@@ -431,6 +431,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get address suggestions from Google Places API
+  app.get("/api/shipping/address-suggestions", async (req, res) => {
+    try {
+      const query = req.query.query as string;
+      
+      if (!query) {
+        return res.status(400).json({ message: "Query parameter is required" });
+      }
+      
+      const suggestions = await shippingService.getAddressSuggestions(query);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching address suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch address suggestions" });
+    }
+  });
+
+  // Get address details from a place ID
+  app.get("/api/shipping/address-details", async (req, res) => {
+    try {
+      const placeId = req.query.placeId as string;
+      
+      if (!placeId) {
+        return res.status(400).json({ message: "Place ID parameter is required" });
+      }
+      
+      const addressDetails = await shippingService.getAddressDetails(placeId);
+      
+      if (!addressDetails) {
+        return res.status(404).json({ message: "Address details not found" });
+      }
+      
+      res.json(addressDetails);
+    } catch (error) {
+      console.error("Error fetching address details:", error);
+      res.status(500).json({ message: "Failed to fetch address details" });
+    }
+  });
+
+  // Get city and state from postal code
+  app.get("/api/shipping/postal-code-details", async (req, res) => {
+    try {
+      const code = req.query.code as string;
+      
+      if (!code) {
+        return res.status(400).json({ message: "Postal code parameter is required" });
+      }
+      
+      const details = await shippingService.getPostalCodeDetails(code);
+      
+      if (!details) {
+        return res.status(404).json({ message: "Postal code details not found" });
+      }
+      
+      res.json(details);
+    } catch (error) {
+      console.error("Error fetching postal code details:", error);
+      res.status(500).json({ message: "Failed to fetch postal code details" });
+    }
+  });
+
 
   // Chat routes
   app.get("/api/models", async (req, res) => {
