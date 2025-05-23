@@ -91,7 +91,7 @@ export function ShippingRateSelector({
       
       // Auto-select the cheapest option if none is selected
       if (!selectedRate && data.length > 0) {
-        const cheapestRate = data.reduce((prev, curr) => 
+        const cheapestRate = data.reduce((prev: ShippingMethod, curr: ShippingMethod) => 
           prev.rate < curr.rate ? prev : curr
         );
         setSelectedRate(`${cheapestRate.carrier}-${cheapestRate.service}`);

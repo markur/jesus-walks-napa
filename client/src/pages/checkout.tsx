@@ -9,12 +9,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { MainLayout } from "@/components/layouts/MainLayout";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, AlertCircle, TruckIcon } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { ShippingRate } from "@shared/schema";
+import { ShippingAddressForm } from "@/components/forms/ShippingAddressForm";
+import { ShippingRateSelector } from "@/components/forms/ShippingRateSelector";
+import { type ShippingAddress } from "@shared/schema";
 
 if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
   throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
@@ -27,8 +29,9 @@ function CheckoutForm() {
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
-  const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
+  const [step, setStep] = useState<'address' | 'payment'>('address');
+  const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null);
+  const [selectedRate, setSelectedRate] = useState<any | null>(null);
   const { toast } = useToast();
   const { state: { total, items }, clearCart } = useCart();
   const [, setLocation] = useLocation();
@@ -42,85 +45,41 @@ function CheckoutForm() {
       .email("Please enter a valid email address")
       .min(5, "Email must be at least 5 characters")
       .max(50, "Email cannot exceed 50 characters"),
-    address1: z.string().min(5, "Address must be at least 5 characters"),
-    city: z.string().min(2, "City must be at least 2 characters"),
-    state: z.string().min(2, "State must be at least 2 characters"),
-    postalCode: z.string().min(5, "Postal code must be at least 5 characters"),
-    country: z.string().min(2, "Country must be at least 2 characters"),
   });
 
   type BillingForm = z.infer<typeof billingSchema>;
 
   const form = useForm<BillingForm>({
     resolver: zodResolver(billingSchema),
-    mode: "onChange",
-    defaultValues: {
-      country: "US"
-    }
+    mode: "onChange"
   });
 
-  // Load shipping rates on component mount
-  useEffect(() => {
-    const loadShippingRates = async () => {
-      try {
-        const response = await apiRequest("POST", "/api/shipping/calculate-rates", {
-          fromAddress: {
-            firstName: "Store",
-            lastName: "Admin",
-            address1: "1234 Store St",
-            city: "Napa",
-            state: "CA",
-            postalCode: "94559",
-            country: "US",
-            phone: "1234567890"
-          },
-          toAddress: {
-            firstName: "Customer",
-            lastName: "Name",
-            address1: "Customer Address",
-            city: "Customer City",
-            state: "CA",
-            postalCode: "90210",
-            country: "US",
-            phone: "1234567890"
-          },
-          parcelDetails: {
-            weight: 1.0,
-            length: 12.0,
-            width: 8.0,
-            height: 6.0
-          }
-        });
+  const handleAddressValidated = (address: ShippingAddress) => {
+    setShippingAddress(address);
+  };
 
-        const rates = await response.json();
-        setShippingRates(rates);
-
-        if (rates.length > 0) {
-          setSelectedRate(rates[0]);
-        }
-      } catch (error: any) {
-        // Don't show error toast for shipping rates, just use a flat rate
-        const flatRate = {
-          carrier: "Standard Shipping",
-          service: "Ground",
-          rate: 5.99,
-          estimatedDays: 5,
-          trackingAvailable: true
-        };
-        setShippingRates([flatRate]);
-        setSelectedRate(flatRate);
-      }
-    };
-
-    loadShippingRates();
-  }, []);
+  const handleRateSelected = (rate: any) => {
+    setSelectedRate(rate);
+  };
 
   const handlePaymentChange = (event: any) => {
     setPaymentError(event.error ? event.error.message : null);
   };
 
+  const handleContinueToPayment = () => {
+    if (shippingAddress && selectedRate) {
+      setStep('payment');
+    } else {
+      toast({
+        title: "Missing Information",
+        description: "Please complete all shipping information",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSubmit = async (data: BillingForm) => {
-    if (!stripe || !elements || !selectedRate) {
+    if (!stripe || !elements || !selectedRate || !shippingAddress) {
       return;
     }
 
@@ -128,20 +87,47 @@ function CheckoutForm() {
     setPaymentError(null);
 
     try {
+      // Create order in the system first
+      const orderResponse = await apiRequest("POST", "/api/orders", {
+        items: items.map(item => ({
+          productId: item.id,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        shipping: {
+          address: shippingAddress,
+          method: `${selectedRate.carrier} - ${selectedRate.service}`,
+          cost: selectedRate.rate
+        },
+        customer: {
+          name: data.name,
+          email: data.email
+        },
+        total: total + selectedRate.rate
+      });
+      
+      if (!orderResponse.ok) {
+        throw new Error("Failed to create order");
+      }
+      
+      const order = await orderResponse.json();
+      
+      // Then confirm payment with Stripe
       const { error } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: `${window.location.origin}/order-confirmation`,
+          return_url: `${window.location.origin}/order-confirmation?orderId=${order.id}`,
           payment_method_data: {
             billing_details: {
               name: data.name,
               email: data.email,
               address: {
-                line1: data.address1,
-                city: data.city,
-                state: data.state,
-                postal_code: data.postalCode,
-                country: data.country
+                line1: shippingAddress.address1,
+                line2: shippingAddress.address2,
+                city: shippingAddress.city,
+                state: shippingAddress.state,
+                postal_code: shippingAddress.postalCode,
+                country: shippingAddress.country
               }
             }
           },
@@ -167,220 +153,187 @@ function CheckoutForm() {
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold mb-4">Shipping Method</h2>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                {shippingRates.map((rate) => (
-                  <div
-                    key={`${rate.carrier}-${rate.service}`}
-                    className={`p-4 border rounded-lg cursor-pointer flex items-center justify-between ${
-                      selectedRate?.service === rate.service ? 'border-primary bg-primary/5' : ''
-                    }`}
-                    onClick={() => setSelectedRate(rate)}
-                  >
-                    <div className="flex items-center space-x-4">
-                      <TruckIcon className="h-5 w-5" />
-                      <div>
-                        <p className="font-medium">{rate.carrier} - {rate.service}</p>
+    <div className="space-y-6">
+      {/* Step indicator */}
+      <div className="flex items-center justify-center mb-6">
+        <div className={`flex items-center ${step === 'address' ? 'text-primary' : 'text-muted-foreground'}`}>
+          <div className="flex items-center justify-center h-8 w-8 rounded-full border border-current">
+            1
+          </div>
+          <span className="ml-2 font-medium">Shipping</span>
+        </div>
+        <div className="w-16 h-0.5 mx-2 bg-muted"></div>
+        <div className={`flex items-center ${step === 'payment' ? 'text-primary' : 'text-muted-foreground'}`}>
+          <div className="flex items-center justify-center h-8 w-8 rounded-full border border-current">
+            2
+          </div>
+          <span className="ml-2 font-medium">Payment</span>
+        </div>
+      </div>
+
+      {step === 'address' ? (
+        // Step 1: Shipping Address and Method
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Shipping Address</h2>
+            <ShippingAddressForm onAddressValidated={handleAddressValidated} />
+          </div>
+          
+          {shippingAddress && (
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Shipping Method</h2>
+              <ShippingRateSelector 
+                customerAddress={shippingAddress}
+                onSelectRate={handleRateSelected}
+                selectedRateId={selectedRate ? `${selectedRate.carrier}-${selectedRate.service}` : undefined}
+              />
+            </div>
+          )}
+          
+          <Button 
+            onClick={handleContinueToPayment}
+            className="w-full mt-4"
+            disabled={!shippingAddress || !selectedRate}
+          >
+            Continue to Payment
+          </Button>
+        </div>
+      ) : (
+        // Step 2: Billing and Payment
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+            <Card>
+              <CardContent className="pt-6 space-y-6">
+                <div>
+                  <h2 className="text-lg font-semibold mb-4">Shipping Summary</h2>
+                  {shippingAddress && (
+                    <div className="border rounded-lg p-4 mb-4">
+                      <div className="flex items-center text-sm text-muted-foreground mb-2">
+                        <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
+                        Verified shipping address
+                      </div>
+                      <p className="font-medium">{shippingAddress.firstName} {shippingAddress.lastName}</p>
+                      <p>{shippingAddress.address1}</p>
+                      {shippingAddress.address2 && <p>{shippingAddress.address2}</p>}
+                      <p>{shippingAddress.city}, {shippingAddress.state} {shippingAddress.postalCode}</p>
+                      <p>{shippingAddress.country}</p>
+                      <p>{shippingAddress.phone}</p>
+                      
+                      <div className="mt-3 pt-3 border-t">
+                        <p className="font-medium">Shipping Method:</p>
+                        <p>{selectedRate.carrier} - {selectedRate.service}</p>
                         <p className="text-sm text-muted-foreground">
-                          Estimated delivery: {rate.estimatedDays} days
+                          {selectedRate.estimatedDays === 1 
+                            ? "Estimated 1 day delivery"
+                            : selectedRate.estimatedDays > 1
+                            ? `Estimated ${selectedRate.estimatedDays} days delivery`
+                            : "Delivery time unknown"
+                          }
                         </p>
                       </div>
                     </div>
-                    <p className="font-semibold">${rate.rate.toFixed(2)}</p>
+                  )}
+                  
+                  <Button 
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setStep('address')}
+                  >
+                    Edit shipping info
+                  </Button>
+                </div>
+              
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            placeholder="John Doe"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="email" 
+                            {...field} 
+                            placeholder="john@example.com"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <h3 className="text-md font-semibold mt-4">Payment Method</h3>
+                <PaymentElement 
+                  onChange={handlePaymentChange}
+                  options={{
+                    layout: {
+                      type: 'tabs',
+                      defaultCollapsed: false,
+                    }
+                  }} 
+                />
+
+                {paymentError && (
+                  <div className="flex items-center gap-2 text-red-500 text-sm">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{paymentError}</span>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold mb-4">Billing & Shipping Information</h2>
-          <Card>
-            <CardContent className="pt-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Full Name</FormLabel>
-                      <FormControl>
-                        <Input 
-                          {...field} 
-                          placeholder="John Doe"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="email" 
-                          {...field} 
-                          placeholder="john@example.com"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="address1"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address</FormLabel>
-                    <FormControl>
-                      <Input 
-                        {...field} 
-                        placeholder="123 Main St"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
                 )}
-              />
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="city"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>City</FormLabel>
-                      <FormControl>
-                        <Input 
-                          {...field} 
-                          placeholder="City"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="state"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>State</FormLabel>
-                      <FormControl>
-                        <Input 
-                          {...field} 
-                          placeholder="CA"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="postalCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Postal Code</FormLabel>
-                      <FormControl>
-                        <Input 
-                          {...field} 
-                          placeholder="12345"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="country"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Country</FormLabel>
-                      <FormControl>
-                        <Input 
-                          {...field} 
-                          placeholder="US"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <h3 className="text-md font-semibold mt-4">Payment Method</h3>
-              <PaymentElement 
-                onChange={handlePaymentChange}
-                options={{
-                  layout: {
-                    type: 'tabs',
-                    defaultCollapsed: false,
-                  }
-                }} 
-              />
-
-              {paymentError && (
-                <div className="flex items-center gap-2 text-red-500 text-sm">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>{paymentError}</span>
+                <div className="pt-4 border-t">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span>Subtotal</span>
+                    <span>${total.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span>Shipping</span>
+                    <span>${selectedRate?.rate.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-lg">
+                    <span>Total</span>
+                    <span>${(total + (selectedRate?.rate || 0)).toFixed(2)}</span>
+                  </div>
                 </div>
-              )}
 
-              <div className="pt-4 border-t">
-                <div className="flex justify-between text-sm mb-2">
-                  <span>Subtotal</span>
-                  <span>${total.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span>Shipping</span>
-                  <span>${selectedRate?.rate.toFixed(2) || '0.00'}</span>
-                </div>
-                <div className="flex justify-between font-semibold text-lg">
-                  <span>Total</span>
-                  <span>${(total + (selectedRate?.rate || 0)).toFixed(2)}</span>
-                </div>
-              </div>
-
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={isProcessing || !stripe || !elements}
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  `Pay $${(total + (selectedRate?.rate || 0)).toFixed(2)}`
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </form>
-    </Form>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={isProcessing || !stripe || !elements}
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    `Pay $${(total + (selectedRate?.rate || 0)).toFixed(2)}`
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </form>
+        </Form>
+      )}
+    </div>
   );
 }
 
