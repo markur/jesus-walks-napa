@@ -8,15 +8,18 @@ if (!process.env.EASYPOST_API_KEY) {
   process.env.EASYPOST_API_KEY = '';
 }
 
-if (!process.env.GOOGLE_MAPS_API_KEY) {
-  console.warn("Warning: Missing GOOGLE_MAPS_API_KEY. Address autocomplete features will be disabled.");
+// Use either GOOGLE_MAPS_API_KEY or GOOGLE_API_KEY
+const googleApiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY;
+
+if (!googleApiKey) {
+  console.warn("Warning: Missing Google API key. Address autocomplete features will be disabled.");
 }
 
 const easypost = new Easypost(process.env.EASYPOST_API_KEY);
 
 const geocoder = NodeGeocoder({
   provider: 'google',
-  apiKey: process.env.GOOGLE_MAPS_API_KEY
+  apiKey: googleApiKey
 });
 
 export interface ValidatedAddress extends ShippingAddress {
