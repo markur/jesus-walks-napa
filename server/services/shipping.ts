@@ -52,7 +52,7 @@ export interface PostalCodeDetails {
 export class ShippingService {
   // Get address suggestions using Google Places API
   async getAddressSuggestions(query: string): Promise<AddressSuggestion[]> {
-    if (!process.env.GOOGLE_MAPS_API_KEY) {
+    if (!googleApiKey) {
       return [];
     }
     
@@ -64,7 +64,7 @@ export class ShippingService {
             input: query,
             types: 'address',
             components: 'country:us', // Limit to US addresses
-            key: process.env.GOOGLE_MAPS_API_KEY
+            key: googleApiKey
           }
         }
       );
@@ -88,7 +88,7 @@ export class ShippingService {
 
   // Get details for a specific place ID from Google Places API
   async getAddressDetails(placeId: string): Promise<ShippingAddress | null> {
-    if (!process.env.GOOGLE_MAPS_API_KEY) {
+    if (!googleApiKey) {
       return null;
     }
     
@@ -99,7 +99,7 @@ export class ShippingService {
           params: {
             place_id: placeId,
             fields: 'address_component,formatted_address',
-            key: process.env.GOOGLE_MAPS_API_KEY
+            key: googleApiKey
           }
         }
       );
